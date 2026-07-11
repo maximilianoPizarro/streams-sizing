@@ -361,14 +361,11 @@ function renderResultsStep() {
     kafkaDataDiskGB: r.totalDiskStorageGB ?? 0,
     subscriptionCoresReported: r.subscriptionCoresReported ?? 0,
   };
-  const poolRows = pd.kafkaNodePools
-    ? pd.kafkaNodePools.map((p) => `
-        <tr><th>${p.role} nodes</th><td>${p.nodes} × ${p.resources.cpuRequest} CPU, ${p.resources.memoryRequestGi} Gi RAM, ${p.resources.pvcSizeGi} Gi disk</td></tr>`).join('')
+  const poolHint = pd.kafkaNodePools
+    ? `<tr><th>OpenShift requests</th><td><small>Same sizing as above, expressed for KafkaNodePool YAML: ${pd.kafkaNodePools.map((p) => `${p.role} ${p.nodes}× ${p.resources.cpuRequest} / ${p.resources.memoryRequestGi} Gi / ${p.resources.pvcSizeGi} Gi PVC`).join('; ')}</small></td></tr>`
     : `
         <tr><th>Broker hosts</th><td>${pd.topology.brokerHosts}</td></tr>
-        <tr><th>Controller hosts</th><td>${pd.topology.controllerHosts}</td></tr>
-        <tr><th>Resources per broker</th><td>${pd.resourcesPerBroker.vcpus} vCPU, ${pd.resourcesPerBroker.memoryGi} Gi RAM, ${formatGb(pd.resourcesPerBroker.diskGi)} disk</td></tr>
-        <tr><th>Resources per controller</th><td>${pd.resourcesPerController.vcpus} vCPU, ${pd.resourcesPerController.memoryGi} Gi RAM, ${formatGb(pd.resourcesPerController.diskGi)} disk</td></tr>`;
+        <tr><th>Controller hosts</th><td>${pd.topology.controllerHosts}</td></tr>`;
 
   const rhafRows = (r.rhaf?.components ?? []).map((c) => `
     <tr>
@@ -450,12 +447,12 @@ function renderResultsStep() {
         <tr><th>Broker nodes</th><td>${r.brokerNodes} × ${r.vcpusPerBroker} vCPU, ${r.memPerBrokerGB} Gi RAM, ${formatGb(r.diskPerBrokerGB)} disk</td></tr>
         <tr><th>Controller nodes (KRaft)</th><td>${r.controllerNodes} × ${r.vcpusPerController} vCPU, ${r.memPerControllerGB} Gi RAM, ${formatGb(r.diskPerControllerGB)} disk</td></tr>
         <tr><th>Daily storage (RF included)</th><td>${formatGb(r.dailyDiskUsageGB)}</td></tr>
-        <tr><th>Total storage (effective retention)</th><td>${formatGb(r.totalDiskStorageGB)} (${r.retentionEffectiveDays} days effective)</td></tr>
-        <tr><th>Disk per broker</th><td>${formatGb(r.diskPerBrokerGB)}</td></tr>
+        <tr><th>Total storage (effective retention)</th><td>${formatGb(r.totalDiskStorageGB)} (${Number(r.retentionEffectiveDays).toFixed(1)} days effective)</td></tr>
+        <tr><th>Disk per broker (PVC)</th><td>${formatGb(r.diskPerBrokerGB)}</td></tr>
         <tr><th>Core pairs (alternate)</th><td>${r.subscriptionCorePairs}</td></tr>
         <tr><th>Failover-excluded cores</th><td>${r.subscriptionFailoverExcluded}</td></tr>
         <tr><th>Partitions (if estimated)</th><td>${r.partitions || '—'}</td></tr>
-        ${poolRows}
+        ${poolHint}
       </table>
       </section>
 
