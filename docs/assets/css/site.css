@@ -435,6 +435,23 @@ body {
   background: #f9e6e6;
 }
 
+.streams-results-section {
+  outline: none;
+  scroll-margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.streams-results-section.is-recalc-focus {
+  box-shadow: inset 3px 0 0 #ee0000;
+  background: #fff8f8;
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+
+.streams-results-section.is-recalc-focus .streams-results-table--breakdown {
+  outline: 2px solid #ee0000;
+  outline-offset: 2px;
+}
+
 .streams-disclaimer__title {
   font-weight: 700;
   margin: 0 0 0.35rem;

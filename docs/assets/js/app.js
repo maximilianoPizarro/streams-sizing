@@ -3,7 +3,7 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs?v=10';
+} from './sizing-engine.mjs?v=11';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -444,6 +444,21 @@ function renderResultsStep() {
         ${withIntegrations}
       </table>
 
+      <section id="results-breakdown" class="streams-results-section" tabindex="-1">
+      <h2>Breakdown (${pd.deploymentTarget})</h2>
+      <table class="streams-results-table streams-results-table--breakdown">
+        <tr><th>Broker nodes</th><td>${r.brokerNodes} × ${r.vcpusPerBroker} vCPU, ${r.memPerBrokerGB} Gi RAM, ${formatGb(r.diskPerBrokerGB)} disk</td></tr>
+        <tr><th>Controller nodes (KRaft)</th><td>${r.controllerNodes} × ${r.vcpusPerController} vCPU, ${r.memPerControllerGB} Gi RAM, ${formatGb(r.diskPerControllerGB)} disk</td></tr>
+        <tr><th>Daily storage (RF included)</th><td>${formatGb(r.dailyDiskUsageGB)}</td></tr>
+        <tr><th>Total storage (effective retention)</th><td>${formatGb(r.totalDiskStorageGB)} (${r.retentionEffectiveDays} days effective)</td></tr>
+        <tr><th>Disk per broker</th><td>${formatGb(r.diskPerBrokerGB)}</td></tr>
+        <tr><th>Core pairs (alternate)</th><td>${r.subscriptionCorePairs}</td></tr>
+        <tr><th>Failover-excluded cores</th><td>${r.subscriptionFailoverExcluded}</td></tr>
+        <tr><th>Partitions (if estimated)</th><td>${r.partitions || '—'}</td></tr>
+        ${poolRows}
+      </table>
+      </section>
+
       <h2>Economize (suggestions)</h2>
       <p class="streams-step-intro">
         Contextual levers to reduce storage, OpenShift footprint, or reported subscription — without moving Kafka onto infra nodes.
@@ -458,19 +473,6 @@ function renderResultsStep() {
             ${s.source ? `<small>Source: ${s.source}</small>` : ''}
           </li>`).join('')}
       </ul>
-
-      <h2>Breakdown (${pd.deploymentTarget})</h2>
-      <table class="streams-results-table">
-        <tr><th>Broker nodes</th><td>${r.brokerNodes} × ${r.vcpusPerBroker} vCPU, ${r.memPerBrokerGB} Gi RAM, ${formatGb(r.diskPerBrokerGB)} disk</td></tr>
-        <tr><th>Controller nodes (KRaft)</th><td>${r.controllerNodes} × ${r.vcpusPerController} vCPU, ${r.memPerControllerGB} Gi RAM, ${formatGb(r.diskPerControllerGB)} disk</td></tr>
-        <tr><th>Daily storage (RF included)</th><td>${formatGb(r.dailyDiskUsageGB)}</td></tr>
-        <tr><th>Total storage (effective retention)</th><td>${formatGb(r.totalDiskStorageGB)} (${r.retentionEffectiveDays} days effective)</td></tr>
-        <tr><th>Disk per broker</th><td>${formatGb(r.diskPerBrokerGB)}</td></tr>
-        <tr><th>Core pairs (alternate)</th><td>${r.subscriptionCorePairs}</td></tr>
-        <tr><th>Failover-excluded cores</th><td>${r.subscriptionFailoverExcluded}</td></tr>
-        <tr><th>Partitions (if estimated)</th><td>${r.partitions || '—'}</td></tr>
-        ${poolRows}
-      </table>
 
       <h2>RHAF complementary components</h2>
       <p><small>${r.rhaf?.disclaimer ?? ''}</small></p>
@@ -611,8 +613,22 @@ btnNext.addEventListener('click', () => {
       stamp.classList.add('is-flash');
       setTimeout(() => stamp.classList.remove('is-flash'), 1200);
     }
+    focusResultsBreakdown();
   }
 });
+
+function focusResultsBreakdown() {
+  const section = document.getElementById('results-breakdown');
+  if (!section) return;
+  section.classList.add('is-recalc-focus');
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try {
+    section.focus({ preventScroll: true });
+  } catch {
+    section.focus();
+  }
+  setTimeout(() => section.classList.remove('is-recalc-focus'), 1600);
+}
 
 async function init() {
   const demoParams = new URLSearchParams(window.location.search);
