@@ -9,7 +9,8 @@ calculator: true
   <h1 class="streams-hero__title">Size your Kafka cluster</h1>
   <p class="streams-hero__lead">
     Constraint-based estimate for Red Hat Streams for Apache Kafka on OpenShift or RHEL (KRaft).
-    Results include broker/controller topology, storage, subscription cores, and RHAF add-ons.
+    Results include broker/controller topology, storage, subscription cores, RHAF add-ons,
+    and optional Camel / Quarkus integration runtimes (including clients outside OpenShift).
   </p>
 </div>
 

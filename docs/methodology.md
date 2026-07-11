@@ -91,9 +91,29 @@ Orientative estimates for production architectures:
 
 See product documentation for authoritative sizing.
 
+## Camel integrations & Quarkus runtimes
+
+Optional **client access patterns** (do not change broker math unless you also raise `consumerGroups`):
+
+| Pattern | When to use | What is sized |
+|---------|-------------|----------------|
+| `inCluster` | Apps only inside the platform | No Camel/Quarkus runtime estimate |
+| `camel` | Client wants **Apache Camel** mediation | Red Hat build of Apache Camel (Quarkus): `max(2, camelIntegrations)` pods |
+| `external` | Clients consume/produce **outside OpenShift** | Quarkus Kafka clients: `max(2, quarkusRuntimes)` pods + external listener notes |
+| `camelAndExternal` | Both | Camel + external Quarkus runtimes |
+
+Resource baselines (orientative; +1 vCPU when ingress &gt; 50 MB/s):
+
+- Camel: 2 vCPU / 2–4 Gi per instance
+- Quarkus: 1–2 vCPU / 1–2 Gi per instance
+
+These runtimes are **not** Streams subscription cores. External groups must still be counted in Kafka `consumerGroups` for network sizing.
+
 ## References
 
 - [Streams for Apache Kafka 3.2 Reference](https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2#Reference)
 - [Minimum sizing (OpenShift dev)](https://access.redhat.com/solutions/4205851)
 - [Kafka configuration tuning](https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.0/html-single/kafka_configuration_tuning/index)
 - [Strimzi deploying guide](https://strimzi.io/docs/operators/latest/deploying.html)
+- [Red Hat build of Apache Camel](https://docs.redhat.com/en/documentation/red_hat_build_of_apache_camel/)
+- [Red Hat build of Quarkus](https://docs.redhat.com/en/documentation/red_hat_build_of_quarkus/)

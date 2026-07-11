@@ -51,6 +51,9 @@ export const DEFAULTS = {
  * @property {number} [consumerThroughputMBps]
  * @property {boolean} [includeRhaf]
  * @property {'corePairs' | 'failoverExcluded'} [subscriptionPolicy]
+ * @property {'inCluster' | 'camel' | 'external' | 'camelAndExternal'} [clientAccessPattern]
+ * @property {number} [camelIntegrations] - Camel integration deployments (when using Camel)
+ * @property {number} [quarkusRuntimes] - Quarkus apps (Camel-Quarkus and/or external Kafka clients)
  */
 
 function ceil(n) {
@@ -201,21 +204,24 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
 
   if (rhaf) {
     const comps = rhaf.components ?? [];
-    rhaf.totals = {
-      instances: comps.reduce((s, c) => s + (c.estimate.instances ?? 0), 0),
-      vcpus: comps.reduce(
-        (s, c) => s + (c.estimate.instances ?? 0) * (c.estimate.vcpuEach ?? 0),
-        0
-      ),
-      memoryGi: comps.reduce(
-        (s, c) => s + (c.estimate.instances ?? 0) * (c.estimate.memoryGiEach ?? 0),
-        0
-      ),
-    };
+    rhaf.totals = sumComponentTotals(comps);
     clusterTotals.withRhaf = {
       vcpus: clusterTotals.vcpus + rhaf.totals.vcpus,
       memoryGi: clusterTotals.memoryGi + rhaf.totals.memoryGi,
       nodes: clusterTotals.nodes + rhaf.totals.instances,
+    };
+  }
+
+  const integrations = estimateIntegrations(input, { writesMB });
+  if (integrations) {
+    integrations.totals = sumComponentTotals(integrations.components);
+    const baseVcpus = clusterTotals.withRhaf?.vcpus ?? clusterTotals.vcpus;
+    const baseMem = clusterTotals.withRhaf?.memoryGi ?? clusterTotals.memoryGi;
+    const baseNodes = clusterTotals.withRhaf?.nodes ?? clusterTotals.nodes;
+    clusterTotals.withIntegrations = {
+      vcpus: baseVcpus + integrations.totals.vcpus,
+      memoryGi: baseMem + integrations.totals.memoryGi,
+      nodes: baseNodes + integrations.totals.instances,
     };
   }
 
@@ -242,10 +248,26 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     bindingConstraint,
     retentionEffectiveDays,
     jvmHeapRecommendationGb: `${defaults.jvmHeapGbMin}-${defaults.jvmHeapGbMax}`,
+    clientAccessPattern: input.clientAccessPattern ?? 'inCluster',
     clusterTotals,
     platformDetails: platformResult,
     rhaf,
+    integrations,
     trace,
+  };
+}
+
+function sumComponentTotals(comps) {
+  return {
+    instances: comps.reduce((s, c) => s + (c.estimate.instances ?? 0), 0),
+    vcpus: comps.reduce(
+      (s, c) => s + (c.estimate.instances ?? 0) * (c.estimate.vcpuEach ?? 0),
+      0
+    ),
+    memoryGi: comps.reduce(
+      (s, c) => s + (c.estimate.instances ?? 0) * (c.estimate.memoryGiEach ?? 0),
+      0
+    ),
   };
 }
 
@@ -390,6 +412,93 @@ function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
     },
     referenceThroughputMBps: round(writesMB * rf, 2),
     referenceBrokerCount: brokerNodes,
+  };
+}
+
+/**
+ * Orientative Camel / Quarkus / external-client runtime estimates.
+ * Applies when the client uses Camel integrations and/or consumes Kafka
+ * directly from outside OpenShift (instead of only in-cluster clients).
+ */
+function estimateIntegrations(input, { writesMB }) {
+  const pattern = input.clientAccessPattern ?? 'inCluster';
+  if (pattern === 'inCluster') {
+    return null;
+  }
+
+  const wantsCamel = pattern === 'camel' || pattern === 'camelAndExternal';
+  const wantsExternal = pattern === 'external' || pattern === 'camelAndExternal';
+  const throughputBump = writesMB > 50 ? 1 : 0;
+
+  const components = [];
+  const notes = [];
+
+  if (wantsCamel) {
+    const requested = input.camelIntegrations ?? 0;
+    const instances = Math.max(2, ceil(requested > 0 ? requested : 2));
+    components.push({
+      name: 'Red Hat build of Apache Camel (Quarkus)',
+      role: 'Integration routes / connectors to Kafka',
+      estimate: {
+        instances,
+        vcpuEach: 2 + throughputBump,
+        memoryGiEach: 2 + throughputBump * 2,
+        note: 'HA baseline ≥2 pods. Scale with route count and transformation complexity.',
+      },
+      docs: 'https://docs.redhat.com/en/documentation/red_hat_build_of_apache_camel/',
+    });
+    notes.push(
+      'Camel sizing is for integration runtimes (often Camel for Quarkus), not Kafka brokers.'
+    );
+  }
+
+  if (wantsExternal || wantsCamel) {
+    const requested = input.quarkusRuntimes ?? 0;
+    const defaultCount = wantsExternal ? 2 : wantsCamel ? 0 : 0;
+    // When Camel-only: extra pure Quarkus clients optional (0 unless specified).
+    // When external / both: always size Quarkus (or equivalent) runtimes outside/in addition.
+    const useCount = requested > 0 ? requested : defaultCount;
+    if (useCount > 0 || wantsExternal) {
+      const instances = Math.max(2, ceil(useCount > 0 ? useCount : 2));
+      components.push({
+        name: wantsExternal
+          ? 'Quarkus Kafka clients (outside OpenShift)'
+          : 'Quarkus Kafka runtimes (additional)',
+        role: wantsExternal
+          ? 'Produce/consume Kafka from outside the OpenShift cluster'
+          : 'Additional Quarkus apps talking to Kafka (non-Camel)',
+        estimate: {
+          instances,
+          vcpuEach: 1 + throughputBump,
+          memoryGiEach: 1 + throughputBump,
+          note: wantsExternal
+            ? 'Runs outside OpenShift; ensure external Kafka listeners, TLS, and network capacity.'
+            : 'Optional extra Quarkus services beyond Camel integrations.',
+        },
+        docs: 'https://docs.redhat.com/en/documentation/red_hat_build_of_quarkus/',
+      });
+    }
+  }
+
+  if (wantsExternal) {
+    notes.push(
+      'External access: configure Kafka external listeners (LoadBalancer/NodePort/Routes), certificates, and firewall rules.'
+    );
+    notes.push(
+      'External consumer groups still count in the Kafka consumerGroups input for broker network sizing.'
+    );
+  }
+
+  if (components.length === 0) {
+    return null;
+  }
+
+  return {
+    pattern,
+    disclaimer:
+      'Orientative sizing for Camel integrations and Quarkus runtimes. Not Streams subscription cores. Validate with load tests.',
+    components,
+    notes,
   };
 }
 

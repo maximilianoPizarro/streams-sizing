@@ -152,4 +152,54 @@ test('clusterTotals aggregates brokers and controllers', () => {
     t.withRhaf.vcpus,
     t.vcpus + result.rhaf.totals.vcpus
   );
+  assert.equal(result.integrations, null);
+});
+
+test('Camel integrations sized when clientAccessPattern=camel', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    clientAccessPattern: 'camel',
+    camelIntegrations: 3,
+    quarkusRuntimes: 0,
+  });
+  assert.ok(result.integrations);
+  assert.equal(result.integrations.pattern, 'camel');
+  const camel = result.integrations.components.find((c) =>
+    c.name.includes('Camel')
+  );
+  assert.ok(camel);
+  assert.equal(camel.estimate.instances, 3);
+  assert.equal(result.integrations.totals.instances, 3);
+  assert.ok(result.clusterTotals.withIntegrations.vcpus > result.clusterTotals.withRhaf.vcpus);
+});
+
+test('External Quarkus clients sized outside OpenShift', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    clientAccessPattern: 'external',
+    quarkusRuntimes: 4,
+  });
+  assert.ok(result.integrations);
+  assert.equal(result.integrations.pattern, 'external');
+  const q = result.integrations.components.find((c) =>
+    c.name.includes('outside OpenShift')
+  );
+  assert.ok(q);
+  assert.equal(q.estimate.instances, 4);
+  assert.ok(result.integrations.notes.some((n) => n.includes('external listeners')));
+});
+
+test('camelAndExternal sizes both Camel and Quarkus', () => {
+  const fx = loadFixture('fixture-example-aggregate');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    clientAccessPattern: 'camelAndExternal',
+    camelIntegrations: 2,
+    quarkusRuntimes: 2,
+  });
+  assert.equal(result.integrations.components.length, 2);
+  assert.equal(result.integrations.totals.instances, 4);
+  assert.ok(result.clusterTotals.withIntegrations);
 });

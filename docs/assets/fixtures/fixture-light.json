@@ -21,7 +21,10 @@
     "producerThroughputMBps": 2,
     "consumerThroughputMBps": 2,
     "includeRhaf": true,
-    "subscriptionPolicy": "corePairs"
+    "subscriptionPolicy": "corePairs",
+    "clientAccessPattern": "inCluster",
+    "camelIntegrations": 0,
+    "quarkusRuntimes": 0
   },
   "expected": {
     "ingressMBps": 11.2,

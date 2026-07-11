@@ -37,6 +37,9 @@ const state = {
     consumerThroughputMBps: 2,
     includeRhaf: true,
     subscriptionPolicy: 'corePairs',
+    clientAccessPattern: 'inCluster',
+    camelIntegrations: 0,
+    quarkusRuntimes: 0,
   },
   result: null,
 };
@@ -185,15 +188,21 @@ function renderDurabilityStep() {
 }
 
 function renderConsumersStep() {
+  const pattern = state.input.clientAccessPattern ?? 'inCluster';
+  const showCamel = pattern === 'camel' || pattern === 'camelAndExternal';
+  const showQuarkus = pattern === 'external' || pattern === 'camelAndExternal' || pattern === 'camel';
+
   return `
-    <h2>Consumers & partitions</h2>
+    <h2>Consumers, partitions &amp; client access</h2>
     <p class="streams-step-intro">
-      Consumer fan-out is often the network bottleneck. Partition fields are optional: leave at 0 to skip partition estimation.
+      Consumer fan-out is often the network bottleneck. Partition fields are optional.
+      Choose how applications reach Kafka: in-cluster only, <strong>Apache Camel</strong> integrations,
+      or <strong>direct clients outside OpenShift</strong> (Quarkus or other runtimes).
     </p>
     <div class="streams-field-grid">
       ${field('consumerGroups', 'Consumer groups', 'number', {
         min: 0,
-        help: 'Independent consumer groups reading the same topics at peak. Raises net-read: (groups + RF − 1) × writes. Use the peak concurrent group count.',
+        help: 'Independent consumer groups reading the same topics at peak — include external groups. Raises net-read: (groups + RF − 1) × writes.',
       })}
       ${field('laggingConsumers', 'Lagging consumers', 'number', {
         min: 0,
@@ -211,6 +220,25 @@ function renderConsumersStep() {
         min: 0,
         help: 'Optional. Throughput of the slowest consumer. Partitions also consider ceil(topicTP / consumerTP); final partitions = max of both.',
       })}
+      ${field('clientAccessPattern', 'Client access pattern', 'number', {
+        options: [
+          ['inCluster', 'In-cluster only (no Camel / external runtime sizing)'],
+          ['camel', 'Apache Camel integrations (Camel for Quarkus)'],
+          ['external', 'Direct Kafka clients outside OpenShift'],
+          ['camelAndExternal', 'Camel + external clients outside OpenShift'],
+        ],
+        help: 'Use Camel when integrations mediate Kafka. Use external when producers/consumers run outside OpenShift and talk to Kafka listeners directly.',
+      })}
+      ${showCamel ? field('camelIntegrations', 'Camel integrations (deployments)', 'number', {
+        min: 0,
+        help: 'Number of Camel integration deployments (Red Hat build of Apache Camel). Engine uses max(2, this value) for HA. Leave 0 to apply the HA baseline of 2.',
+      }) : ''}
+      ${showQuarkus ? field('quarkusRuntimes', 'Quarkus runtimes', 'number', {
+        min: 0,
+        help: showCamel && !pattern.includes('external')
+          ? 'Optional extra Quarkus Kafka apps beyond Camel. Leave 0 to skip. Camel-for-Quarkus pods are counted under Camel integrations.'
+          : 'Quarkus (or equivalent) apps that produce/consume Kafka from outside OpenShift. Engine uses max(2, this value) for HA.',
+      }) : ''}
     </div>`;
 }
 
@@ -241,9 +269,42 @@ function renderResultsStep() {
       <td>${c.estimate.instances} instance(s), ${c.estimate.vcpuEach} vCPU, ${c.estimate.memoryGiEach} Gi RAM — ${c.role}</td>
     </tr>`).join('');
 
+  const integRows = (r.integrations?.components ?? []).map((c) => `
+    <tr>
+      <th>${c.name}</th>
+      <td>${c.estimate.instances} instance(s), ${c.estimate.vcpuEach} vCPU, ${c.estimate.memoryGiEach} Gi RAM — ${c.role}${c.estimate.note ? `<br><small>${c.estimate.note}</small>` : ''}</td>
+    </tr>`).join('');
+
+  const integNotes = (r.integrations?.notes ?? [])
+    .map((n) => `<li>${n}</li>`)
+    .join('');
+
   const withRhaf = t.withRhaf
-    ? `<tr><th>Grand total with RHAF</th><td>${t.withRhaf.nodes} instances/nodes · ${t.withRhaf.vcpus} vCPU · ${t.withRhaf.memoryGi} Gi RAM</td></tr>`
+    ? `<tr><th>Subtotal with RHAF</th><td>${t.withRhaf.nodes} instances/nodes · ${t.withRhaf.vcpus} vCPU · ${t.withRhaf.memoryGi} Gi RAM</td></tr>`
     : '';
+
+  const withIntegrations = t.withIntegrations
+    ? `<tr><th>Grand total with RHAF + integrations</th><td><strong>${t.withIntegrations.nodes}</strong> instances/nodes · <strong>${t.withIntegrations.vcpus}</strong> vCPU · <strong>${t.withIntegrations.memoryGi}</strong> Gi RAM</td></tr>`
+    : '';
+
+  const integrationsSection = r.integrations
+    ? `
+      <h2>Integrations (Camel / Quarkus)</h2>
+      <p><small>${r.integrations.disclaimer}</small></p>
+      <p><small>Pattern: <code>${r.integrations.pattern}</code></small></p>
+      <table class="streams-results-table">
+        ${integRows}
+        ${r.integrations.totals ? `<tr><th>Integrations subtotal</th><td>${r.integrations.totals.instances} instances · ${r.integrations.totals.vcpus} vCPU · ${r.integrations.totals.memoryGi} Gi RAM</td></tr>` : ''}
+      </table>
+      ${integNotes ? `<ul class="streams-step-intro">${integNotes}</ul>` : ''}
+    `
+    : `
+      <h2>Integrations (Camel / Quarkus)</h2>
+      <p class="streams-step-intro">
+        Not included — client access pattern is <code>inCluster</code>.
+        Select Camel and/or external clients outside OpenShift in the previous step to size integration runtimes.
+      </p>
+    `;
 
   return `
     <div class="streams-results">
@@ -263,6 +324,7 @@ function renderResultsStep() {
         <tr><th>Subscription cores</th><td><strong>${t.subscriptionCoresReported}</strong> (${r.subscriptionPolicy})</td></tr>
         <tr><th>Ingress / binding</th><td>${r.ingressMBps} MB/s · ${r.bindingConstraint}</td></tr>
         ${withRhaf}
+        ${withIntegrations}
       </table>
 
       <h2>Breakdown (${pd.deploymentTarget})</h2>
@@ -284,6 +346,8 @@ function renderResultsStep() {
         ${rhafRows}
         ${r.rhaf?.totals ? `<tr><th>RHAF subtotal</th><td>${r.rhaf.totals.instances} instances · ${r.rhaf.totals.vcpus} vCPU · ${r.rhaf.totals.memoryGi} Gi RAM</td></tr>` : ''}
       </table>
+
+      ${integrationsSection}
 
       <h2>Verification trace</h2>
       <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>
@@ -331,10 +395,18 @@ function bindFields() {
   bodyEl.querySelectorAll('input, select').forEach((el) => {
     el.addEventListener('change', () => {
       const { name, value, type } = el;
-      if (type === 'number') {
-        state.input[name] = value === '' ? 0 : Number(value);
-      } else if (name === 'subscriptionPolicy' || name === 'platform') {
+      if (
+        name === 'subscriptionPolicy' ||
+        name === 'platform' ||
+        name === 'clientAccessPattern'
+      ) {
         state.input[name] = value;
+        if (name === 'clientAccessPattern') {
+          renderBody();
+          return;
+        }
+      } else if (type === 'number') {
+        state.input[name] = value === '' ? 0 : Number(value);
       } else {
         state.input[name] = Number(value);
       }

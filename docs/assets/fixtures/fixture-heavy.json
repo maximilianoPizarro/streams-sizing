@@ -21,7 +21,10 @@
     "producerThroughputMBps": 0,
     "consumerThroughputMBps": 0,
     "includeRhaf": true,
-    "subscriptionPolicy": "failoverExcluded"
+    "subscriptionPolicy": "failoverExcluded",
+    "clientAccessPattern": "inCluster",
+    "camelIntegrations": 0,
+    "quarkusRuntimes": 0
   },
   "expected": {
     "ingressMBps": 500,
