@@ -3,7 +3,7 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs';
+} from './sizing-engine.mjs?v=5';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -253,7 +253,16 @@ function renderResultsStep() {
   if (!r) return '<p>Calculating…</p>';
 
   const pd = r.platformDetails;
-  const t = r.clusterTotals;
+  const t = r.clusterTotals ?? {
+    nodes: (r.brokerNodes ?? 0) + (r.controllerNodes ?? 0),
+    brokerNodes: r.brokerNodes ?? 0,
+    controllerNodes: r.controllerNodes ?? 0,
+    vcpus: 0,
+    memoryGi: 0,
+    diskGB: 0,
+    kafkaDataDiskGB: r.totalDiskStorageGB ?? 0,
+    subscriptionCoresReported: r.subscriptionCoresReported ?? 0,
+  };
   const poolRows = pd.kafkaNodePools
     ? pd.kafkaNodePools.map((p) => `
         <tr><th>${p.role} nodes</th><td>${p.nodes} × ${p.resources.cpuRequest} CPU, ${p.resources.memoryRequestGi} Gi RAM, ${p.resources.pvcSizeGi} Gi disk</td></tr>`).join('')
