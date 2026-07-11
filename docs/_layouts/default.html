@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{ '/' | relative_url }}">
+  <title>{% if page.title %}{{ page.title }} | {% endif %}streams-sizing</title>
+  <meta name="description" content="{{ site.description }}">
+  <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@5.4.0/patternfly.css">
+  <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+</head>
+<body>
+  <div class="pf-v5-c-page" id="page-main">
+    <header class="pf-v5-c-masthead streams-masthead" role="banner">
+      <div class="pf-v5-c-masthead__main">
+        <a class="streams-masthead__brand" href="{{ '/' | relative_url }}">
+          <img
+            src="{{ '/assets/brand/streams-for-apache-kafka.png' | relative_url }}"
+            alt="Red Hat Streams for Apache Kafka"
+            class="streams-masthead__logo"
+            width="320"
+            height="48"
+          />
+        </a>
+        <span class="streams-masthead__tool">streams-sizing</span>
+      </div>
+      <div class="pf-v5-c-masthead__content">
+        <nav class="streams-nav" aria-label="Secondary">
+          <a href="{{ '/methodology.html' | relative_url }}">Methodology</a>
+          <a href="{{ '/verification.html' | relative_url }}">Verification</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="pf-v5-c-page__main-section pf-m-fill" id="main-content" tabindex="-1">
+      {{ content }}
+    </main>
+
+    <footer class="streams-footer">
+      <p>
+        Red Hat&reg; Streams for Apache Kafka sizing estimate.
+        Validate with load simulation and production metrics.
+      </p>
+      <p class="streams-footer__legal">
+        Red Hat and the Red Hat logo are trademarks of Red Hat, Inc.
+        Apache Kafka is a trademark of The Apache Software Foundation.
+        Analytical model derived from
+        <a href="https://github.com/AndyYuen/kafka-sizing" rel="noopener noreferrer">Andy Yuen&apos;s kafka-sizing</a>.
+      </p>
+    </footer>
+  </div>
+  {% if page.calculator %}
+  <script type="module" src="{{ '/assets/js/app.js' | relative_url }}"></script>
+  {% endif %}
+</body>
+</html>

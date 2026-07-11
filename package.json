@@ -1,0 +1,11 @@
+{
+  "name": "streams-sizing",
+  "version": "1.0.0",
+  "description": "Red Hat Streams for Apache Kafka sizing calculator",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/**/*.test.mjs",
+    "sync-engine": "node scripts/sync-engine.mjs"
+  },
+  "license": "Apache-2.0"
+}

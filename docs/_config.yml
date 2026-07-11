@@ -1,0 +1,9 @@
+title: streams-sizing
+description: Capacity planning calculator for Red Hat Streams for Apache Kafka
+baseurl: "/streams-sizing"
+url: "https://maximilianopizarro.github.io"
+
+markdown: kramdown
+
+exclude:
+  - fixtures

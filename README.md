@@ -1,61 +1,63 @@
-# An AMQ Streams (Kafka) Sizing Tool
+# streams-sizing
 
-_You can access my Kafka sizing tool using the link 
-[here](https://kafkasizing.azurewebsites.net/size?)._
+Capacity planning calculator for **Red Hat Streams for Apache Kafka** on OpenShift or RHEL.
 
-Note that the first time you access it, it may timeout or take a long time as the container would have been stopped due to inactivity.
+Live site (GitHub Pages): `https://maximilianopizarro.github.io/streams-sizing/`
 
-Also, the calculator will give a preconfigured minimum even if your input requirements require less resources. We are talking about enterprise env here.
+## Features
 
+- Constraint-based broker sizing (network, disk, replication, safety factor)
+- KRaft controller quorum (3 or 5 nodes)
+- OpenShift (`KafkaNodePool`) vs RHEL host outputs
+- Mixed retention, growth projection, optional partition estimate
+- RHAF add-on estimates (Registry, Bridge, MirrorMaker 2, Console, Keycloak)
+- Export/import scenarios (JSON)
+- Verifiable calculation trace on every result
 
-## Problem statement
-Enterprises planning to use Red Hat AMQ Streams (Kafka) want to get an idea as to how many subscription cores they need to purchase. The intention of this tool is to provide an educated estimate. Nothing beats simulating the load on your hardware but this is not always feasible. The next best thing is to develop an analytical model to do the estimation.
+## Analytical model
 
+Ported from [Andy Yuen's kafka-sizing](https://github.com/AndyYuen/kafka-sizing) and extended for Streams 3.2 / Strimzi. See [docs/methodology.md](docs/methodology.md).
 
-## An Analytical Model
-It will take up too much space here to describe the analytical model I used for this sizing tool. Instead, I have included it in the repository: "AMQ Streams (Kafka) Sizing Tool - Analytical Model.pdf", for those who are interested. 
+Legacy Spring Boot + ZooKeeper UI: branch [`legacy/spring-boot`](https://github.com/maximilianPizarro/streams-sizing/tree/legacy/spring-boot) (original [Azure deployment](https://kafkasizing.azurewebsites.net/size)).
 
-## User Interface and Sizing Output
-Here is a screenshot of the UI:
-![App UI](images/sizingParameters.png "APP UI")
+## Verify
 
-Here is a screenshot of the sizing results:
-![Sizing Results](images/sizingResults.png "Sizing Results")
+```bash
+npm test
+node scripts/sync-engine.mjs   # copy engine → docs/assets/js/
+```
 
-## Running Spring Boot Locally
-<pre>
-    mvn clean spring-boot:run
-</pre>
+Golden fixtures: `docs/fixtures/fixture-light.json`, `docs/fixtures/fixture-heavy.json` (anonymized workloads).
 
-## Deploying to Openshift
-Do the following:
-* Log in to Openshift
-* Create a new Openshift project: kafka-sizing
-* Make sure you are on that project
-* Deploy a MySQL database and set it up with the schema using the schema-mysql.sql (see screenshots in next section).
-* On your laptop, change to the root of your kafka-sizing maven project and execute the following commands:
-<pre>
-	mvn clean -Pprod package
-	oc project kafka-sizing
-	oc policy add-role-to-user view -z default
-	oc create configmap kafka-sizing --from-file=target/classes/application.properties
-	mvn oc:build
-	mvn oc:resource
-	mvn oc:apply
-</pre>
+## Local preview (Jekyll)
 
-Please note that you need to execute the package mvn goal before creating the configmap as mvn changes the application.properties file before copying it to the target directory.
-* invoke the application using its route
+```bash
+cd docs
+bundle install   # optional: gem install jekyll
+bundle exec jekyll serve
+```
 
+Or open `docs/index.md` output after `jekyll build` in `docs/_site/`.
 
-## Database Deployment Screenshots
-* Use Openshift templates to create a MySQL database with persistent storage.
-![JSON document output](images/pd-database.png "Create MySQL database")
+**Note:** ES modules require HTTP (GitHub Pages or `jekyll serve`), not `file://`.
 
-* Identify the MySQL pod, rsh into it and login to MySQL as root:
-![Login to MySQL](images/pd-mysql.png "Login to MySQL")
+## GitHub Pages
 
-* Paste the SQL script to create the schema
-![Initialise schema](images/pd-mysql2.png "Initialise schema")
+1. Repository **Settings → Pages**
+2. Source: **Deploy from branch**
+3. Branch: `main`, folder: `/docs`
+4. Site URL: `https://<user>.github.io/streams-sizing/`
 
-## ENJOY ;-) !!! 
+Ensure `baseurl` in [docs/_config.yml](docs/_config.yml) matches the repo name.
+
+## Branding
+
+Official product logo: [docs/assets/brand/](docs/assets/brand/) ([Red Hat brand standards](https://www.redhat.com/en/about/brand/standards/product-logos)).
+
+## Disclaimer
+
+This tool provides **educated estimates**. Validate with `kafka-producer-perf-test`, `kafka-consumer-perf-test`, and production metrics before purchasing or deploying.
+
+## License
+
+Apache License 2.0 (see [LICENSE](LICENSE)). Analytical model attribution: Andy Yuen / kafka-sizing.

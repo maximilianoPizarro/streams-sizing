@@ -1,0 +1,7 @@
+node_modules/
+docs/_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+*.gem
+.DS_Store

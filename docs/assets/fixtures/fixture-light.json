@@ -1,0 +1,39 @@
+{
+  "id": "fixture-light",
+  "description": "Anonymized medium-throughput workload (example-A premises). 1400 msg/s, 8 KB, RF=3, mixed retention.",
+  "input": {
+    "platform": "openshift",
+    "messageRate": 1400,
+    "messageSizeBytes": 8000,
+    "replicas": 3,
+    "netSpeedGbps": 10,
+    "diskThroughputMBps": 400,
+    "maxUtil": 0.65,
+    "consumerGroups": 12,
+    "laggingConsumers": 0,
+    "retentionDays": 7,
+    "extendedRetentionDays": 45,
+    "extendedRetentionPercent": 20,
+    "annualGrowthRatePercent": 8,
+    "projectionYears": 0,
+    "controllerFailuresTolerated": 1,
+    "topicThroughputMBps": 11,
+    "producerThroughputMBps": 2,
+    "consumerThroughputMBps": 2,
+    "includeRhaf": true,
+    "subscriptionPolicy": "corePairs"
+  },
+  "expected": {
+    "ingressMBps": 11.2,
+    "dailyDiskUsageGB": 2904,
+    "brokerNodesMin": 4,
+    "controllerNodes": 3,
+    "year3": {
+      "projectionYears": 3,
+      "ingressMBps": 14.11,
+      "dailyDiskUsageGB": 3657,
+      "totalDiskStorageMixedRetentionGB": 53393
+    },
+    "mixedRetentionEffectiveDays": 14.6
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "fixture-heavy",
+  "description": "Anonymized high-throughput workload (example-B premises). ~500 MB/s aggregate ingress, RF=3.",
+  "input": {
+    "platform": "openshift",
+    "messageRate": 62500,
+    "messageSizeBytes": 8000,
+    "replicas": 3,
+    "netSpeedGbps": 25,
+    "diskThroughputMBps": 400,
+    "maxUtil": 0.65,
+    "consumerGroups": 24,
+    "laggingConsumers": 2,
+    "retentionDays": 3,
+    "extendedRetentionDays": 0,
+    "extendedRetentionPercent": 0,
+    "annualGrowthRatePercent": 0,
+    "projectionYears": 0,
+    "controllerFailuresTolerated": 1,
+    "topicThroughputMBps": 0,
+    "producerThroughputMBps": 0,
+    "consumerThroughputMBps": 0,
+    "includeRhaf": true,
+    "subscriptionPolicy": "failoverExcluded"
+  },
+  "expected": {
+    "ingressMBps": 500,
+    "dailyDiskUsageGB": 129600,
+    "brokerNodesMin": 4,
+    "architectureReferenceBrokers": 4,
+    "architectureReferenceControllers": 3,
+    "bindingConstraint": "disk",
+    "bottleneckExceedsArchitectureReference": true
+  }
+}
