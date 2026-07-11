@@ -47,7 +47,7 @@ const btnNext = document.getElementById('btn-next');
 
 function renderNav() {
   navEl.innerHTML = STEPS.map((s, i) => {
-    let cls = 'pf-v5-c-wizard__nav-item';
+    let cls = 'streams-wizard__step';
     if (i === state.step) cls += ' is-current';
     else if (i < state.step) cls += ' is-complete';
     return `<li class="${cls}" role="listitem">${i + 1}. ${s.title}</li>`;
@@ -78,7 +78,7 @@ function field(name, label, type = 'number', opts = {}) {
 
 function renderPlatformStep() {
   return `
-    <h2 class="pf-v5-c-title pf-m-2xl">Deployment platform</h2>
+    <h2>Deployment platform</h2>
     <p>Select where Streams for Apache Kafka will run. The analytical model is the same; outputs differ (NodePools vs hosts).</p>
     <div class="streams-platform-cards" role="radiogroup" aria-label="Platform">
       ${['openshift', 'rhel'].map((p) => `
@@ -94,7 +94,7 @@ function renderPlatformStep() {
 
 function renderWorkloadStep() {
   return `
-    <h2 class="pf-v5-c-title pf-m-2xl">Workload</h2>
+    <h2>Workload</h2>
     <div class="streams-field-grid">
       ${field('messageRate', 'Target message rate (msgs/s)', 'number', { min: 1, help: 'Ingress rate the cluster must handle.' })}
       ${field('messageSizeBytes', 'Average message size (bytes)', 'number', { min: 1, help: 'Use 8000 for 8 KB average (decimal KB).' })}
@@ -109,7 +109,7 @@ function renderWorkloadStep() {
 
 function renderDurabilityStep() {
   return `
-    <h2 class="pf-v5-c-title pf-m-2xl">Durability & storage</h2>
+    <h2>Durability & storage</h2>
     <div class="streams-field-grid">
       ${field('retentionDays', 'Standard retention (days)', 'number', { min: 1 })}
       ${field('extendedRetentionDays', 'Extended retention (days)', 'number', { min: 0, help: '0 = disabled.' })}
@@ -128,7 +128,7 @@ function renderDurabilityStep() {
 
 function renderConsumersStep() {
   return `
-    <h2 class="pf-v5-c-title pf-m-2xl">Consumers & partitions</h2>
+    <h2>Consumers & partitions</h2>
     <div class="streams-field-grid">
       ${field('consumerGroups', 'Consumer groups', 'number', { min: 0 })}
       ${field('laggingConsumers', 'Lagging consumers', 'number', { min: 0, help: '0 = best case (page cache hits). Worst case ≈ consumerGroups + (RF − 1).' })}
@@ -187,13 +187,13 @@ function renderResultsStep() {
       <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>
 
       <div class="streams-actions">
-        <button type="button" class="pf-v5-c-button pf-m-secondary" id="btn-export">Export scenario (JSON)</button>
-        <label class="pf-v5-c-button pf-m-secondary">
+        <button type="button" class="streams-btn streams-btn--secondary" id="btn-export">Export scenario (JSON)</button>
+        <label class="streams-btn streams-btn--secondary">
           Import scenario
           <input type="file" id="import-file" accept="application/json" hidden />
         </label>
-        <button type="button" class="pf-v5-c-button pf-m-link" id="btn-load-light">Load fixture: light</button>
-        <button type="button" class="pf-v5-c-button pf-m-link" id="btn-load-heavy">Load fixture: heavy</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-light">Load fixture: light</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-heavy">Load fixture: heavy</button>
       </div>
     </div>`;
 }

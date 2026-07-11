@@ -1,19 +1,17 @@
 # Brand assets
 
-## Product logo
+## Files
 
 | File | Source |
 |------|--------|
-| `streams-for-apache-kafka.png` | [Red Hat product logo](https://www.redhat.com/rhdc/managed-files/styles/product_logo/public/streams-for-apache-kafka.png) |
+| `red-hat-logo-on-dark.svg` | [Red Hat brand assets CDN](https://static.redhat.com/libs/redhat/brand-assets/2/corp/logo--on-dark.svg) |
 
-Downloaded from Red Hat managed product logo assets per [Product logos brand standards](https://www.redhat.com/en/about/brand/standards/product-logos).
+The masthead combines the official Red Hat logo (reverse/on-dark) with the product name **Streams for Apache Kafka** as text, per [Product branding handbook](https://www.redhat.com/en/about/brand/standards/handbooks/product-branding-handbook).
+
+The full product logo PNG from the Brand Portal requires authenticated download. Replace with the official product logo file when available internally.
 
 ## Usage
 
-- Display in masthead on light/dark background per [Product branding handbook](https://www.redhat.com/en/about/brand/standards/handbooks/product-branding-handbook).
-- Do not recreate, stretch, or modify the logo.
-- **streams-sizing** is the tool name shown beside the product logo, not a replacement for it.
-
-## Updating
-
-If Red Hat publishes a newer logo in the Brand Portal, replace the PNG and update this notice.
+- Red Hat logo on dark masthead background.
+- Product name adjacent to logo; **streams-sizing** as tool subtitle.
+- Do not recreate or modify the logo artwork.
