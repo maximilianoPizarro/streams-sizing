@@ -470,7 +470,7 @@ function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
   const drEnabled = input.includeDr === true;
   return {
     disclaimer:
-      'Orientative sizing for RHAF components. Validate against product documentation and workload.',
+      'Orientative sizing for RHAF components.',
     components: [
       {
         name: 'Apicurio Registry',
@@ -599,7 +599,7 @@ function estimateIntegrations(input, { writesMB }) {
   return {
     pattern,
     disclaimer:
-      'Orientative sizing for Camel integrations and Quarkus runtimes. Not Streams subscription cores. Validate with load tests.',
+      'Orientative sizing for Camel integrations and Quarkus runtimes. Not Streams subscription cores.',
     components,
     notes,
   };
