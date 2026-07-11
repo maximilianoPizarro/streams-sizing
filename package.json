@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/sizing-engine.test.mjs",
-    "sync-engine": "node scripts/sync-engine.mjs"
+    "sync-engine": "node scripts/sync-engine.mjs",
+    "generate-favicon": "node scripts/generate-favicon.mjs"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "sharp": "^0.35.3"
+  }
 }

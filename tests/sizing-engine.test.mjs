@@ -203,3 +203,112 @@ test('camelAndExternal sizes both Camel and Quarkus', () => {
   assert.equal(result.integrations.totals.instances, 4);
   assert.ok(result.clusterTotals.withIntegrations);
 });
+
+test('amplificationFactor = (1/maxUtil) × safetyFactor', () => {
+  const result = sizeKafkaCluster({
+    platform: 'openshift',
+    messageRate: 1000,
+    messageSizeBytes: 1000,
+    replicas: 3,
+    netSpeedGbps: 10,
+    diskThroughputMBps: 400,
+    maxUtil: 0.7,
+    safetyFactor: 1.6,
+    consumerGroups: 1,
+    laggingConsumers: 0,
+    retentionDays: 1,
+    controllerFailuresTolerated: 1,
+  });
+  assert.equal(result.trace.amplificationFactor, 2.2857);
+  assert.equal(result.amplificationFactor, 2.2857);
+});
+
+test('disk headroom factors in trace', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.trace.capacityHeadroom, 1.25);
+  assert.equal(result.trace.segmentOverhead, 0.05);
+  assert.equal(result.diskPerBrokerGB, 13913);
+});
+
+test('duplex half increases netUtilisation vs full', () => {
+  const base = {
+    platform: 'openshift',
+    messageRate: 5000,
+    messageSizeBytes: 1000,
+    replicas: 3,
+    netSpeedGbps: 10,
+    diskThroughputMBps: 400,
+    maxUtil: 0.65,
+    consumerGroups: 10,
+    laggingConsumers: 0,
+    retentionDays: 3,
+    controllerFailuresTolerated: 1,
+  };
+  const full = sizeKafkaCluster({ ...base, duplexMode: 'full' });
+  const half = sizeKafkaCluster({ ...base, duplexMode: 'half' });
+  assert.ok(half.trace.netUtilisation > full.trace.netUtilisation);
+});
+
+test('kraft metadata added to net pressure without changing light brokers', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.trace.kraftMetadataMBps, 6);
+  assert.equal(result.brokerNodes, 4);
+});
+
+test('partition density warning when over threshold', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    totalPartitions: 8000,
+    topicThroughputMBps: 0,
+    producerThroughputMBps: 0,
+    consumerThroughputMBps: 0,
+  });
+  assert.ok(result.warnings.length > 0);
+  assert.ok(result.trace.partitionsPerBroker > 4000);
+});
+
+test('enforcePartitionLimit increases broker count', () => {
+  const fx = loadFixture('fixture-light');
+  const warnOnly = sizeKafkaCluster({
+    ...fx.input,
+    totalPartitions: 8000,
+    enforcePartitionLimit: false,
+  });
+  const enforced = sizeKafkaCluster({
+    ...fx.input,
+    totalPartitions: 8000,
+    enforcePartitionLimit: true,
+  });
+  assert.equal(warnOnly.brokerNodes, 4);
+  assert.ok(enforced.brokerNodes > warnOnly.brokerNodes);
+});
+
+test('low RAM increases diskIO when explicitly set', () => {
+  const fx = loadFixture('fixture-light');
+  const high = sizeKafkaCluster({
+    ...fx.input,
+    ramPerBrokerGB: 32,
+    laggingConsumers: 5,
+  });
+  const low = sizeKafkaCluster({
+    ...fx.input,
+    ramPerBrokerGB: 4,
+    laggingConsumers: 5,
+  });
+  assert.ok(low.trace.diskReadWriteMBps > high.trace.diskReadWriteMBps);
+});
+
+test('experimental compute CPU estimate', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    compressionType: 'gzip',
+    tlsEnabled: true,
+  });
+  const plain = sizeKafkaCluster({ ...fx.input, compressionType: 'none', tlsEnabled: false });
+  assert.ok(result.computeCpuEstimate.cpuCoresPerBroker > plain.computeCpuEstimate.cpuCoresPerBroker);
+  assert.equal(result.computeCpuEstimate.experimental, true);
+});

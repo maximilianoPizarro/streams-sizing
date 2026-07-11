@@ -5,6 +5,9 @@
 | File | Source |
 |------|--------|
 | `red-hat-logo-on-dark.svg` | [Red Hat brand assets CDN](https://static.redhat.com/libs/redhat/brand-assets/2/corp/logo--on-dark.svg) |
+| `favicon.svg` | Hat mark cropped from official logo (masthead favicon) |
+| `favicon-16.png`, `favicon-32.png`, `favicon.ico` | Generated via `node scripts/generate-favicon.mjs` |
+| `og-streams-sizing.png` | Open Graph / Twitter card image (~1200×630, PatternFly-style) |
 
 The masthead combines the official Red Hat logo (reverse/on-dark) with the product name **Streams for Apache Kafka** as text, per [Product branding handbook](https://www.redhat.com/en/about/brand/standards/handbooks/product-branding-handbook).
 
