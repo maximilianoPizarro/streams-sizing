@@ -295,12 +295,16 @@ btnNext.addEventListener('click', () => {
   }
 });
 
-renderNav();
-renderBody();
-
-const demoParams = new URLSearchParams(window.location.search);
-const demoFixture = demoParams.get('fixture');
-const demoStep = demoParams.get('step');
-if (demoFixture) {
-  loadFixture(demoFixture, demoStep != null ? Number(demoStep) : null);
+async function init() {
+  const demoParams = new URLSearchParams(window.location.search);
+  const demoFixture = demoParams.get('fixture');
+  const demoStep = demoParams.get('step');
+  if (demoFixture) {
+    await loadFixture(demoFixture, demoStep != null ? Number(demoStep) : null);
+    return;
+  }
+  renderNav();
+  renderBody();
 }
+
+init();
