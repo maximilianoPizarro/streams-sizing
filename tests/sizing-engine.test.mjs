@@ -312,3 +312,17 @@ test('experimental compute CPU estimate', () => {
   assert.ok(result.computeCpuEstimate.cpuCoresPerBroker > plain.computeCpuEstimate.cpuCoresPerBroker);
   assert.equal(result.computeCpuEstimate.experimental, true);
 });
+
+test('economize-light: lower disk, same brokers, suggestions present', () => {
+  const fx = loadFixture('fixture-economize-light');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.ingressMBps, fx.expected.ingressMBps);
+  assert.ok(result.brokerNodes >= fx.expected.brokerNodesMin);
+  assert.equal(result.controllerNodes, fx.expected.controllerNodes);
+  assert.equal(result.totalDiskStorageGB, fx.expected.totalDiskStorageGB);
+  assert.equal(result.diskPerBrokerGB, fx.expected.diskPerBrokerGB);
+  assert.equal(result.subscriptionCoresReported, fx.expected.subscriptionCoresReported);
+  assert.equal(result.clusterTotals.vcpus, fx.expected.clusterTotals.vcpus);
+  assert.ok(result.economizeSuggestions.length >= 3);
+  assert.ok(result.economizeSuggestions.some((s) => s.id === 'openshift-semantics'));
+});

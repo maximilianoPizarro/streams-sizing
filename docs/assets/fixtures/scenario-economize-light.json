@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-07-11T17:28:01.703Z",
+  "name": "economize-light",
+  "input": {
+    "platform": "openshift",
+    "messageRate": 1400,
+    "messageSizeBytes": 8000,
+    "replicas": 3,
+    "netSpeedGbps": 10,
+    "diskThroughputMBps": 400,
+    "maxUtil": 0.65,
+    "safetyFactor": 1.6,
+    "duplexMode": "full",
+    "consumerGroups": 12,
+    "laggingConsumers": 0,
+    "retentionDays": 3,
+    "extendedRetentionDays": 0,
+    "extendedRetentionPercent": 0,
+    "diskCapacityHeadroom": 1.25,
+    "diskSegmentOverhead": 0.05,
+    "annualGrowthRatePercent": 0,
+    "projectionYears": 0,
+    "controllerFailuresTolerated": 1,
+    "topicThroughputMBps": 11,
+    "producerThroughputMBps": 2,
+    "consumerThroughputMBps": 2,
+    "includeRhaf": false,
+    "includeDr": false,
+    "subscriptionPolicy": "corePairs",
+    "clientAccessPattern": "inCluster",
+    "camelIntegrations": 0,
+    "quarkusRuntimes": 0
+  },
+  "result": {
+    "engineVersion": "1.1.0",
+    "platform": "openshift",
+    "ingressMBps": 11.2,
+    "dailyDiskUsageGB": 2904,
+    "totalDiskStorageGB": 8712,
+    "brokerNodes": 4,
+    "controllerNodes": 3,
+    "diskPerBrokerGB": 2859,
+    "memPerBrokerGB": 32,
+    "vcpusPerBroker": 8,
+    "vcpusPerController": 4,
+    "memPerControllerGB": 16,
+    "diskPerControllerGB": 100,
+    "subscriptionCorePairs": 16,
+    "subscriptionFailoverExcluded": 24,
+    "subscriptionCoresReported": 16,
+    "subscriptionPolicy": "corePairs",
+    "partitions": 6,
+    "topicThroughputMBps": 11,
+    "bindingConstraint": "network",
+    "retentionEffectiveDays": 3,
+    "jvmHeapRecommendationGb": "5-8",
+    "clientAccessPattern": "inCluster",
+    "amplificationFactor": 2.4615,
+    "computeCpuEstimate": {
+      "cpuCoresPerBroker": 2.38,
+      "experimental": true,
+      "compressionType": "none",
+      "tlsEnabled": false,
+      "compressionFactor": 1,
+      "tlsFactor": 1
+    },
+    "warnings": [],
+    "economizeSuggestions": [
+      {
+        "id": "openshift-semantics",
+        "title": "How to read Total cluster on OpenShift",
+        "detail": "Nodes / vCPU / memory are Kafka broker + controller pod requests (KafkaNodePool replicas), not OpenShift worker or infra node SKUs. Pack those pods onto dedicated worker nodes with affinity/taints; do not schedule Kafka on control-plane/infra nodes.",
+        "source": "Streams for Apache Kafka 3.2 — Deploying on OpenShift (KafkaNodePool roles broker|controller)"
+      },
+      {
+        "id": "subscription-scope",
+        "title": "Subscription cores track broker capacity",
+        "detail": "Reported subscription figure is 16 (corePairs). Controllers (3 × 4 vCPU) and Cluster/Entity Operator cores are outside the broker licensing line used here. Align reporting with your Red Hat entitlement (core pairs vs failover-excluded).",
+        "source": "Streams release notes — subscription limits / operator cores; product methodology"
+      },
+      {
+        "id": "consumer-fanout",
+        "title": "Revisit overstated consumer groups",
+        "detail": "Binding constraint is network with 12 groups. Over-counting independent groups inflates netRead and can force extra brokers (now 4). Use peak concurrent independent groups, not topic count.",
+        "lever": "Consumers → Consumer groups"
+      },
+      {
+        "id": "worker-packing",
+        "title": "Right-size workers; never move Kafka to infra",
+        "detail": "Economize OpenShift by packing broker/controller pods onto fewer large workers (or dedicated machine sets), not by placing them on infra/control-plane. Production guidance: separate broker and controller NodePools; dual-role only for non-prod.",
+        "source": "Streams for Apache Kafka 3.2 Overview — Node pools / role separation"
+      },
+      {
+        "id": "storage-class",
+        "title": "Match storage class to cost/latency",
+        "detail": "Per-broker PVC size already includes capacity headroom. Prefer LSO/local NVMe when latency and cost matter; use ODF/Ceph RBD when you need shared block HA. Over-provisioned storage class is a common silent cost.",
+        "source": "Streams deploying guide — persistent storage / JBOD"
+      }
+    ],
+    "clusterTotals": {
+      "nodes": 7,
+      "brokerNodes": 4,
+      "controllerNodes": 3,
+      "vcpus": 44,
+      "memoryGi": 176,
+      "diskGB": 11736,
+      "kafkaDataDiskGB": 8712,
+      "subscriptionCoresReported": 16
+    },
+    "platformDetails": {
+      "deploymentTarget": "OpenShift",
+      "kafkaNodePools": [
+        {
+          "role": "broker",
+          "nodes": 4,
+          "resources": {
+            "cpuRequest": "8000m",
+            "memoryRequestGi": 32,
+            "memoryLimitGi": 32,
+            "pvcSizeGi": 2859
+          },
+          "scheduling": {
+            "dedicatedWorkers": true,
+            "taintsTolerations": true,
+            "nodeAffinity": true
+          }
+        },
+        {
+          "role": "controller",
+          "nodes": 3,
+          "resources": {
+            "cpuRequest": "4000m",
+            "memoryRequestGi": 16,
+            "memoryLimitGi": 16,
+            "pvcSizeGi": 100
+          }
+        }
+      ],
+      "storage": {
+        "type": "block",
+        "accessMode": "ReadWriteOnce",
+        "filesystem": "xfs",
+        "recommendations": [
+          "ODF (Ceph RBD) for production",
+          "LSO (local NVMe) for dev/low-latency"
+        ]
+      },
+      "operators": [
+        "Cluster Operator",
+        "Entity Operator (Topic + User)",
+        "Cruise Control (recommended production)"
+      ],
+      "notes": [
+        "Separate KafkaNodePool for broker and controller roles (KRaft).",
+        "Set terminationGracePeriodSeconds >= 60 for brokers."
+      ]
+    },
+    "rhaf": null,
+    "integrations": null,
+    "trace": {
+      "messageRateEffective": 1400,
+      "projectionYears": 0,
+      "annualGrowthRatePercent": 0,
+      "writesMBps": 11.2,
+      "netWriteMBps": 33.599999999999994,
+      "netReadMBps": 156.79999999999998,
+      "duplexMode": "full",
+      "diskReadWriteMBps": 33.599999999999994,
+      "diskIOBoostFromRam": 0,
+      "ramPerBrokerGB": 32,
+      "cacheableRetentionGB": 16,
+      "netPressureMBps": 156.8,
+      "kraftMetadataMBps": 6,
+      "netUtilisation": 0.13024,
+      "vcpusPerBroker": 8,
+      "diskUtilisation": 0.084,
+      "maxUtilisation": 0.13024,
+      "maxUtil": 0.65,
+      "safetyFactor": 1.6,
+      "amplificationFactor": 2.4615,
+      "brokersNeededRaw": 0.200369,
+      "brokersNeededByBottleneck": 4,
+      "controllerNodes": 3,
+      "retentionEffectiveDays": 3,
+      "extendedRetentionPercent": 0,
+      "dailyDiskUsageGB": 2904,
+      "totalDiskStorageGB": 8712,
+      "capacityHeadroom": 1.25,
+      "segmentOverhead": 0.05,
+      "producersNeeded": 6,
+      "consumersNeeded": 6,
+      "partitionsPerBroker": 4.5,
+      "bindingConstraint": "network"
+    }
+  }
+}

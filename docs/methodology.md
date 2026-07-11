@@ -109,6 +109,31 @@ Two policies (selectable):
 
 Controller nodes are not counted toward Streams subscription cores.
 
+## How to read OpenShift totals
+
+**Total cluster nodes / vCPU / memory** = sum of Kafka **broker + controller pod** requests from `KafkaNodePool` replicas — not the count or size of OpenShift **worker** or **infra** nodes.
+
+Official Streams for Apache Kafka 3.2 guidance:
+
+- Production: separate node pools for `broker` and `controller` roles ([Overview — Node pools](https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/streams_for_apache_kafka_on_openshift_overview/kafka-components_str)).
+- Dual-role nodes are for development/test, not typical production.
+- Place Kafka on dedicated **worker** capacity (affinity/taints). Control-plane / **infra** nodes are for platform services, not broker workloads.
+- Operator and (historically ZooKeeper) cores are treated separately from broker subscription accounting in Streams subscription guidance; this calculator reports subscription from **broker** vCPU only.
+
+## Economizing (without breaking the model)
+
+Levers that usually lower cost or reported entitlement:
+
+| Lever | Effect |
+|-------|--------|
+| Shorter retention / less mixed retention | Cuts PVC / data volume; brokers unchanged if network-bound |
+| `includeRhaf: false` | Removes add-on pod footprint when RHAF is out of scope |
+| Accurate `consumerGroups` | Avoids overstated net-read and extra brokers |
+| Subscription policy (core pairs vs failover excluded) | Changes **reported** cores, not physical size |
+| Pack pods on right-sized workers / LSO vs ODF | OpenShift platform cost; not Kafka formula |
+
+Sample scenario: `docs/fixtures/fixture-economize-light.json` (3-day retention, no RHAF).
+
 ## Platform outputs
 
 ### OpenShift

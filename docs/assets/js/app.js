@@ -3,7 +3,7 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs?v=8';
+} from './sizing-engine.mjs?v=9';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -390,6 +390,11 @@ function renderResultsStep() {
       </p>
 
       <h2>Total cluster</h2>
+      <p class="streams-step-intro">
+        These totals are <strong>Kafka broker + controller pods</strong> (Strimzi <code>KafkaNodePool</code> replicas and resource requests),
+        not OpenShift worker or infra node SKUs. Pack pods onto dedicated workers; do not place Kafka on control-plane/infra nodes.
+        <a href="https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/streams_for_apache_kafka_on_openshift_overview/kafka-components_str" rel="noopener noreferrer">Streams 3.2 — Node pools</a>.
+      </p>
       <table class="streams-results-table streams-results-table--total">
         <tr><th>Nodes (brokers + controllers)</th><td><strong>${t.nodes}</strong> (${t.brokerNodes} brokers + ${t.controllerNodes} controllers)</td></tr>
         <tr><th>Total vCPU</th><td><strong>${t.vcpus}</strong></td></tr>
@@ -403,6 +408,21 @@ function renderResultsStep() {
         ${withRhaf}
         ${withIntegrations}
       </table>
+
+      <h2>Economize (suggestions)</h2>
+      <p class="streams-step-intro">
+        Contextual levers to reduce storage, OpenShift footprint, or reported subscription — without moving Kafka onto infra nodes.
+        Try the sample scenario <code>fixture-economize-light</code> (3-day retention, no RHAF).
+      </p>
+      <ul class="streams-economize">
+        ${(r.economizeSuggestions ?? []).map((s) => `
+          <li>
+            <strong>${s.title}</strong>
+            <span>${s.detail}</span>
+            ${s.lever ? `<small>Lever: ${s.lever}</small>` : ''}
+            ${s.source ? `<small>Source: ${s.source}</small>` : ''}
+          </li>`).join('')}
+      </ul>
 
       <h2>Breakdown (${pd.deploymentTarget})</h2>
       <table class="streams-results-table">
@@ -441,6 +461,7 @@ function renderResultsStep() {
           <input type="file" id="import-file" accept="application/json" hidden />
         </label>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-light">Load fixture: light</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-economize">Load fixture: economize light</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-example">Load fixture: aggregate example</button>
       </div>
     </div>`;
@@ -527,6 +548,7 @@ function bindResultsActions() {
   });
 
   document.getElementById('btn-load-light')?.addEventListener('click', () => loadFixture('fixture-light'));
+  document.getElementById('btn-load-economize')?.addEventListener('click', () => loadFixture('fixture-economize-light'));
   document.getElementById('btn-load-heavy')?.addEventListener('click', () => loadFixture('fixture-heavy'));
   document.getElementById('btn-load-example')?.addEventListener('click', () => loadFixture('fixture-example-aggregate'));
 }

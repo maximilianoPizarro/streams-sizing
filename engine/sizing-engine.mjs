@@ -340,6 +340,21 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     };
   }
 
+  const economizeSuggestions = buildEconomizeSuggestions(input, {
+    brokerNodes,
+    controllerNodes,
+    vcpusPerBroker,
+    vcpusPerController: defaults.vcpusPerController,
+    totalDiskStorageGB,
+    retentionEffectiveDays,
+    bindingConstraint,
+    subscriptionCorePairs,
+    subscriptionFailoverExcluded,
+    policy,
+    rhaf,
+    clusterTotals,
+  });
+
   return {
     engineVersion: ENGINE_VERSION,
     platform: input.platform,
@@ -367,12 +382,111 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     amplificationFactor: trace.amplificationFactor,
     computeCpuEstimate: computeCpu,
     warnings,
+    economizeSuggestions,
     clusterTotals,
     platformDetails: platformResult,
     rhaf,
     integrations,
     trace,
   };
+}
+
+/**
+ * Contextual cost/licensing economization hints grounded in Streams for Apache Kafka
+ * OpenShift guidance (dedicated broker/controller NodePools; operators/controllers
+ * are not the primary subscription driver — broker vCPU is).
+ */
+function buildEconomizeSuggestions(input, ctx) {
+  const tips = [];
+
+  tips.push({
+    id: 'openshift-semantics',
+    title: 'How to read Total cluster on OpenShift',
+    detail:
+      'Nodes / vCPU / memory are Kafka broker + controller pod requests (KafkaNodePool replicas), not OpenShift worker or infra node SKUs. Pack those pods onto dedicated worker nodes with affinity/taints; do not schedule Kafka on control-plane/infra nodes.',
+    source: 'Streams for Apache Kafka 3.2 — Deploying on OpenShift (KafkaNodePool roles broker|controller)',
+  });
+
+  tips.push({
+    id: 'subscription-scope',
+    title: 'Subscription cores track broker capacity',
+    detail: `Reported subscription figure is ${ctx.clusterTotals.subscriptionCoresReported} (${ctx.policy}). Controllers (${ctx.controllerNodes} × ${ctx.vcpusPerController} vCPU) and Cluster/Entity Operator cores are outside the broker licensing line used here. Align reporting with your Red Hat entitlement (core pairs vs failover-excluded).`,
+    source: 'Streams release notes — subscription limits / operator cores; product methodology',
+  });
+
+  const extPct = Number(input.extendedRetentionPercent ?? 0);
+  const extDays = Number(input.extendedRetentionDays ?? 0);
+  if (extDays > 0 && extPct > 0) {
+    tips.push({
+      id: 'mixed-retention',
+      title: 'Trim mixed retention to cut disk',
+      detail: `Effective retention is ${ctx.retentionEffectiveDays} days (${input.retentionDays}d + ${extPct}% at ${extDays}d). Lowering extendedRetentionPercent or extendedRetentionDays cuts totalDiskStorageGB (~${ctx.totalDiskStorageGB} GB) without changing broker count unless disk was the bottleneck.`,
+      lever: 'Durability → Volume on extended retention (%) / Extended retention (days)',
+    });
+  } else if (Number(input.retentionDays ?? 0) > 3) {
+    tips.push({
+      id: 'retention',
+      title: 'Shorten standard retention when compliance allows',
+      detail: `Retention ${input.retentionDays}d drives ~${ctx.totalDiskStorageGB} GB cluster data (RF included). Reducing days is the largest storage economizer; broker count stays ${ctx.brokerNodes} unless disk I/O was binding.`,
+      lever: 'Durability → Standard retention (days)',
+    });
+  }
+
+  if (input.includeRhaf !== false) {
+    tips.push({
+      id: 'rhaf-optional',
+      title: 'Disable RHAF add-ons you will not deploy',
+      detail:
+        'Apicurio, Bridge, Console, Keycloak, etc. add OpenShift pods and storage. They are not Streams broker cores, but they do consume cluster capacity. Set includeRhaf false when sizing Kafka-only.',
+      lever: 'Export JSON → includeRhaf: false (or omit RHAF section in planning)',
+    });
+  }
+
+  if (input.includeDr === true) {
+    tips.push({
+      id: 'dr-mm2',
+      title: 'MirrorMaker 2 only when DR is real',
+      detail:
+        'includeDr sizes MirrorMaker 2 workers. Leave it off unless you need cross-cluster replication; DR doubles platform footprint.',
+      lever: 'Scenario JSON → includeDr: false',
+    });
+  }
+
+  if (Number(input.consumerGroups ?? 0) > 6 && ctx.bindingConstraint === 'network') {
+    tips.push({
+      id: 'consumer-fanout',
+      title: 'Revisit overstated consumer groups',
+      detail: `Binding constraint is network with ${input.consumerGroups} groups. Over-counting independent groups inflates netRead and can force extra brokers (now ${ctx.brokerNodes}). Use peak concurrent independent groups, not topic count.`,
+      lever: 'Consumers → Consumer groups',
+    });
+  }
+
+  if (ctx.policy === 'failoverExcluded' && ctx.subscriptionFailoverExcluded > ctx.subscriptionCorePairs) {
+    tips.push({
+      id: 'subscription-policy',
+      title: 'Compare subscription reporting policies',
+      detail: `failoverExcluded=${ctx.subscriptionFailoverExcluded} vs corePairs=${ctx.subscriptionCorePairs}. Choose the policy that matches your contract; this does not change physical broker sizing.`,
+      lever: 'Durability → Subscription core policy',
+    });
+  }
+
+  tips.push({
+    id: 'worker-packing',
+    title: 'Right-size workers; never move Kafka to infra',
+    detail:
+      'Economize OpenShift by packing broker/controller pods onto fewer large workers (or dedicated machine sets), not by placing them on infra/control-plane. Production guidance: separate broker and controller NodePools; dual-role only for non-prod.',
+    source: 'Streams for Apache Kafka 3.2 Overview — Node pools / role separation',
+  });
+
+  tips.push({
+    id: 'storage-class',
+    title: 'Match storage class to cost/latency',
+    detail:
+      'Per-broker PVC size already includes capacity headroom. Prefer LSO/local NVMe when latency and cost matter; use ODF/Ceph RBD when you need shared block HA. Over-provisioned storage class is a common silent cost.',
+    source: 'Streams deploying guide — persistent storage / JBOD',
+  });
+
+  return tips;
 }
 
 function sumComponentTotals(comps) {

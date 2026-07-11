@@ -389,6 +389,37 @@ body {
   margin-bottom: 0.35rem;
 }
 
+.streams-economize {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  max-width: 52rem;
+}
+
+.streams-economize li {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0 0.75rem 0.85rem;
+  border-left: 3px solid #ee0000;
+}
+
+.streams-economize strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #151515;
+}
+
+.streams-economize span {
+  display: block;
+  color: #151515;
+  line-height: 1.45;
+}
+
+.streams-economize small {
+  display: block;
+  margin-top: 0.35rem;
+  color: #6a6e73;
+}
+
 .streams-disclaimer__title {
   font-weight: 700;
   margin: 0 0 0.35rem;

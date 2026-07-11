@@ -1,0 +1,47 @@
+{
+  "id": "fixture-economize-light",
+  "description": "Economized variant of fixture-light: shorter retention, no mixed retention, Kafka-only (no RHAF). Same ingress; lower disk footprint. Brokers stay at 4 (network-bound).",
+  "input": {
+    "platform": "openshift",
+    "messageRate": 1400,
+    "messageSizeBytes": 8000,
+    "replicas": 3,
+    "netSpeedGbps": 10,
+    "diskThroughputMBps": 400,
+    "maxUtil": 0.65,
+    "safetyFactor": 1.6,
+    "duplexMode": "full",
+    "consumerGroups": 12,
+    "laggingConsumers": 0,
+    "retentionDays": 3,
+    "extendedRetentionDays": 0,
+    "extendedRetentionPercent": 0,
+    "diskCapacityHeadroom": 1.25,
+    "diskSegmentOverhead": 0.05,
+    "annualGrowthRatePercent": 0,
+    "projectionYears": 0,
+    "controllerFailuresTolerated": 1,
+    "topicThroughputMBps": 11,
+    "producerThroughputMBps": 2,
+    "consumerThroughputMBps": 2,
+    "includeRhaf": false,
+    "includeDr": false,
+    "subscriptionPolicy": "corePairs",
+    "clientAccessPattern": "inCluster",
+    "camelIntegrations": 0,
+    "quarkusRuntimes": 0
+  },
+  "expected": {
+    "ingressMBps": 11.2,
+    "brokerNodesMin": 4,
+    "controllerNodes": 3,
+    "totalDiskStorageGB": 8712,
+    "diskPerBrokerGB": 2859,
+    "subscriptionCoresReported": 16,
+    "clusterTotals": {
+      "nodes": 7,
+      "vcpus": 44,
+      "memoryGi": 176
+    }
+  }
+}
