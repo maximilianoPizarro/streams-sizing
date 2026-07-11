@@ -447,6 +447,33 @@ body {
   transition: background 0.35s ease, box-shadow 0.35s ease;
 }
 
+.streams-arch-preview {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--streams-border);
+  overflow-x: auto;
+}
+
+.streams-arch-preview svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.streams-arch-source {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+}
+
+.streams-arch-source summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #151515;
+  margin-bottom: 0.5rem;
+}
+
 .streams-arch-diagram {
   max-height: 28rem;
   white-space: pre;

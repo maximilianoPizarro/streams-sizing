@@ -148,7 +148,7 @@ const result = sizeKafkaCluster(input);
 const { diagram } = architectureDiagramFromScenario({ input, result }, { format: 'mermaid' });
 ```
 
-The Results step exposes Copy / Download `.mmd`. Sync with `npm run sync-engine`.
+The Results step renders the Mermaid diagram **inline** (via CDN) and also offers Copy / Download `.mmd`. Sync with `npm run sync-engine`.
 
 ## Platform outputs
 

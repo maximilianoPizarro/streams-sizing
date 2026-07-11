@@ -4,8 +4,8 @@ import {
   importScenario,
   DEFAULTS,
   ENGINE_VERSION,
-} from './sizing-engine.mjs?v=13';
-import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=13';
+} from './sizing-engine.mjs?v=14';
+import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=14';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -447,11 +447,17 @@ function renderResultsStep() {
     architectureBlock = `
       <h2>Architecture diagram</h2>
       <p class="streams-step-intro">
-        Generated from this scenario by the separate <code>architecture-diagram</code> module (Mermaid).
-        Copy into any Mermaid renderer; it does not change sizing math.
+        Preview rendered on this page from the separate <code>architecture-diagram</code> module (Mermaid).
+        Sizing math is unchanged — use Copy / Download if you need the source elsewhere.
       </p>
-      <pre class="streams-trace streams-arch-diagram" id="architecture-mermaid">${arch.diagram.replace(/</g, '&lt;')}</pre>
-      <div class="streams-actions" style="margin-top:0">
+      <div class="streams-arch-preview" id="architecture-preview" aria-live="polite">
+        <p class="streams-step-intro">Rendering diagram…</p>
+      </div>
+      <details class="streams-arch-source">
+        <summary>Mermaid source</summary>
+        <pre class="streams-trace streams-arch-diagram" id="architecture-mermaid">${arch.diagram.replace(/</g, '&lt;')}</pre>
+      </details>
+      <div class="streams-actions" style="margin-top:0.75rem">
         <button type="button" class="streams-btn streams-btn--secondary" id="btn-copy-arch">Copy Mermaid</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-download-arch">Download .mmd</button>
       </div>`;
@@ -660,6 +666,48 @@ function bindResultsActions() {
     a.download = 'streams-sizing-architecture.mmd';
     a.click();
   });
+
+  void renderArchitecturePreview();
+}
+
+let mermaidModulePromise = null;
+
+async function loadMermaid() {
+  if (!mermaidModulePromise) {
+    mermaidModulePromise = import(
+      'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'
+    ).then((m) => {
+      const mermaid = m.default;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'neutral',
+        securityLevel: 'strict',
+        flowchart: { htmlLabels: false, curve: 'basis' },
+      });
+      return mermaid;
+    });
+  }
+  return mermaidModulePromise;
+}
+
+async function renderArchitecturePreview() {
+  const host = document.getElementById('architecture-preview');
+  const source = document.getElementById('architecture-mermaid')?.textContent?.trim();
+  if (!host || !source) return;
+  try {
+    const mermaid = await loadMermaid();
+    const id = `streams-arch-${Date.now()}`;
+    const { svg } = await mermaid.render(id, source);
+    host.innerHTML = svg;
+    const svgEl = host.querySelector('svg');
+    if (svgEl) {
+      svgEl.setAttribute('role', 'img');
+      svgEl.setAttribute('aria-label', 'Kafka cluster architecture diagram');
+    }
+  } catch (err) {
+    console.error(err);
+    host.innerHTML = `<p class="streams-step-intro"><strong>Could not render diagram.</strong> ${err.message}. Use Mermaid source below.</p>`;
+  }
 }
 
 async function loadFixture(name, targetStep = null) {
