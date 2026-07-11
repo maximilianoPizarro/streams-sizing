@@ -1,5 +1,6 @@
 /**
- * Generate favicon PNG sizes from docs/assets/brand/favicon.svg
+ * Generate favicon PNG/ICO from docs/assets/brand/favicon.svg
+ * Source SVG: https://ux.redhat.com/assets/logo-red-hat.svg (RHDS official hat)
  * Run: node scripts/generate-favicon.mjs
  */
 import sharp from 'sharp';
