@@ -77,6 +77,37 @@ test('fixture-heavy: failover subscription policy', () => {
   );
 });
 
+test('fixture-example-aggregate: production ~500 MB/s golden', () => {
+  const fx = loadFixture('fixture-example-aggregate');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.ingressMBps, fx.expected.ingressMBps);
+  assert.equal(result.dailyDiskUsageGB, fx.expected.dailyDiskUsageGB);
+  assert.equal(result.totalDiskStorageGB, fx.expected.totalDiskStorageGB);
+  assert.equal(result.brokerNodes, fx.expected.brokerNodes);
+  assert.equal(result.controllerNodes, fx.expected.controllerNodes);
+  assert.equal(result.bindingConstraint, fx.expected.bindingConstraint);
+  assert.equal(result.diskPerBrokerGB, fx.expected.diskPerBrokerGB);
+  assert.equal(
+    result.subscriptionCoresReported,
+    fx.expected.subscriptionCoresReported
+  );
+});
+
+test('fixture-example-aggregate: export/import is reproducible', () => {
+  const fx = loadFixture('fixture-example-aggregate');
+  const first = sizeKafkaCluster(fx.input);
+  const scenario = {
+    schemaVersion: 1,
+    name: fx.id,
+    input: fx.input,
+    result: first,
+  };
+  const second = sizeKafkaCluster(scenario.input);
+  assert.deepEqual(second.trace, first.trace);
+  assert.equal(second.brokerNodes, first.brokerNodes);
+  assert.equal(second.totalDiskStorageGB, first.totalDiskStorageGB);
+});
+
 test('platform adapters: openshift vs rhel', () => {
   const fx = loadFixture('fixture-light');
   const ocp = sizeKafkaCluster({ ...fx.input, platform: 'openshift' });

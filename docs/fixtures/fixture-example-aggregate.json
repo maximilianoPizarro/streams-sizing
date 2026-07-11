@@ -25,8 +25,12 @@
   },
   "expected": {
     "ingressMBps": 500,
-    "dailyDiskUsageGBMin": 129000,
-    "brokerNodesMin": 4,
-    "controllerNodes": 3
+    "dailyDiskUsageGB": 129600,
+    "totalDiskStorageGB": 388800,
+    "brokerNodes": 10,
+    "controllerNodes": 3,
+    "bindingConstraint": "disk",
+    "diskPerBrokerGB": 42768,
+    "subscriptionCoresReported": 90
   }
 }

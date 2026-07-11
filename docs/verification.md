@@ -19,8 +19,16 @@ Golden fixtures (anonymized workloads):
 |---------|-------------|
 | `docs/fixtures/fixture-light.json` | ~1400 msg/s, 8 KB, RF=3, mixed retention |
 | `docs/fixtures/fixture-heavy.json` | ~500 MB/s ingress, high consumer fan-out |
+| `docs/fixtures/fixture-example-aggregate.json` | ~500 MB/s prod example → **10 brokers**, 388800 GB |
 
-Tests assert throughput, storage, KRaft controller count, platform adapters, and RHAF output.
+Tests assert throughput, storage, KRaft controller count, platform adapters, RHAF output, and export/import reproducibility.
+
+Reproduce any scenario:
+
+```bash
+npm test
+# or load a fixture in the UI and Export scenario (JSON)
+```
 
 ## Manual verification (fixture-light)
 
