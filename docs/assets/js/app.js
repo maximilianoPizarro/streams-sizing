@@ -3,7 +3,7 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs?v=9';
+} from './sizing-engine.mjs?v=10';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -49,6 +49,7 @@ const state = {
     totalPartitions: 0,
   },
   result: null,
+  lastCalculatedAt: null,
 };
 
 function prepareInput(input) {
@@ -61,6 +62,37 @@ function prepareInput(input) {
     delete out.totalPartitions;
   }
   return out;
+}
+
+/** Read current wizard form controls into state (so Next/Recalculate sees unblurred edits). */
+function syncFieldsFromDom() {
+  bodyEl.querySelectorAll('input[name], select[name]').forEach((el) => {
+    applyFieldValue(el);
+  });
+}
+
+function applyFieldValue(el) {
+  const { name, value, type } = el;
+  if (!name) return;
+  if (
+    name === 'subscriptionPolicy' ||
+    name === 'platform' ||
+    name === 'clientAccessPattern' ||
+    name === 'duplexMode' ||
+    name === 'compressionType'
+  ) {
+    state.input[name] = value;
+  } else if (name === 'tlsEnabled') {
+    state.input.tlsEnabled = Number(value);
+  } else if (name === 'ramPerBrokerGB') {
+    const n = value === '' ? 0 : Number(value);
+    if (n > 0) state.input.ramPerBrokerGB = n;
+    else delete state.input.ramPerBrokerGB;
+  } else if (type === 'number') {
+    state.input[name] = value === '' ? 0 : Number(value);
+  } else {
+    state.input[name] = Number(value);
+  }
 }
 
 const navEl = document.getElementById('wizard-nav');
@@ -387,6 +419,9 @@ function renderResultsStep() {
         Results for the inputs above. If you kept the defaults, this matches the repository
         <code>fixture-light</code> sample — replace inputs with your workload and recalculate.
         Export JSON to keep an auditable, reproducible scenario.
+        ${state.lastCalculatedAt
+          ? `<span class="streams-calc-stamp" data-calc-stamp>Calculated at ${new Date(state.lastCalculatedAt).toLocaleTimeString()}</span>`
+          : ''}
       </p>
 
       <h2>Total cluster</h2>
@@ -475,9 +510,15 @@ function renderBody() {
     case 'durability': bodyEl.innerHTML = renderDurabilityStep(); bindFields(); break;
     case 'consumers': bodyEl.innerHTML = renderConsumersStep(); bindFields(); break;
     case 'results':
-      state.result = sizeKafkaCluster(prepareInput(state.input), DEFAULTS);
-      bodyEl.innerHTML = renderResultsStep();
-      bindResultsActions();
+      try {
+        state.result = sizeKafkaCluster(prepareInput(state.input), DEFAULTS);
+        state.lastCalculatedAt = new Date().toISOString();
+        bodyEl.innerHTML = renderResultsStep();
+        bindResultsActions();
+      } catch (err) {
+        console.error(err);
+        bodyEl.innerHTML = `<p class="streams-field"><strong>Could not calculate.</strong> ${err.message}</p>`;
+      }
       break;
     default: break;
   }
@@ -496,32 +537,14 @@ function bindPlatformCards() {
 
 function bindFields() {
   bodyEl.querySelectorAll('input, select').forEach((el) => {
-    el.addEventListener('change', () => {
-      const { name, value, type } = el;
-      if (
-        name === 'subscriptionPolicy' ||
-        name === 'platform' ||
-        name === 'clientAccessPattern' ||
-        name === 'duplexMode' ||
-        name === 'compressionType'
-      ) {
-        state.input[name] = value;
-        if (name === 'clientAccessPattern' || name === 'duplexMode') {
-          renderBody();
-          return;
-        }
-      } else if (name === 'tlsEnabled') {
-        state.input.tlsEnabled = Number(value);
-      } else if (name === 'ramPerBrokerGB') {
-        const n = value === '' ? 0 : Number(value);
-        if (n > 0) state.input.ramPerBrokerGB = n;
-        else delete state.input.ramPerBrokerGB;
-      } else if (type === 'number') {
-        state.input[name] = value === '' ? 0 : Number(value);
-      } else {
-        state.input[name] = Number(value);
+    const onEdit = () => {
+      applyFieldValue(el);
+      if (el.name === 'clientAccessPattern' || el.name === 'duplexMode') {
+        renderBody();
       }
-    });
+    };
+    el.addEventListener('change', onEdit);
+    el.addEventListener('input', onEdit);
   });
 }
 
@@ -567,6 +590,7 @@ async function loadFixture(name, targetStep = null) {
 }
 
 btnBack.addEventListener('click', () => {
+  syncFieldsFromDom();
   if (state.step > 0) {
     state.step -= 1;
     renderNav();
@@ -575,13 +599,18 @@ btnBack.addEventListener('click', () => {
 });
 
 btnNext.addEventListener('click', () => {
+  syncFieldsFromDom();
   if (state.step < STEPS.length - 1) {
     state.step += 1;
     renderNav();
     renderBody();
   } else {
-    state.result = sizeKafkaCluster(prepareInput(state.input), DEFAULTS);
     renderBody();
+    const stamp = bodyEl.querySelector('[data-calc-stamp]');
+    if (stamp) {
+      stamp.classList.add('is-flash');
+      setTimeout(() => stamp.classList.remove('is-flash'), 1200);
+    }
   }
 });
 

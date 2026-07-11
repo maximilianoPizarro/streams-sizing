@@ -420,6 +420,21 @@ body {
   color: #6a6e73;
 }
 
+.streams-calc-stamp {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8125rem;
+  color: #151515;
+  background: #f0f0f0;
+  border-radius: 2px;
+  transition: background 0.3s ease;
+}
+
+.streams-calc-stamp.is-flash {
+  background: #f9e6e6;
+}
+
 .streams-disclaimer__title {
   font-weight: 700;
   margin: 0 0 0.35rem;
