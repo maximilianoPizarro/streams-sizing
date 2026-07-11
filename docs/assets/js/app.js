@@ -268,7 +268,11 @@ function bindResultsActions() {
 }
 
 async function loadFixture(name, targetStep = null) {
-  const res = await fetch(`assets/fixtures/${name}.json`);
+  const url = new URL(`../fixtures/${name}.json`, import.meta.url);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Fixture not found: ${name}`);
+  }
   const fx = await res.json();
   state.input = { ...state.input, ...fx.input };
   state.step = targetStep ?? STEPS.length - 1;
@@ -299,9 +303,17 @@ async function init() {
   const demoParams = new URLSearchParams(window.location.search);
   const demoFixture = demoParams.get('fixture');
   const demoStep = demoParams.get('step');
-  if (demoFixture) {
-    await loadFixture(demoFixture, demoStep != null ? Number(demoStep) : null);
-    return;
+  try {
+    if (demoFixture) {
+      await loadFixture(
+        demoFixture,
+        demoStep != null && demoStep !== '' ? Number(demoStep) : null
+      );
+      return;
+    }
+  } catch (err) {
+    console.error(err);
+    bodyEl.innerHTML = `<p class="streams-field"><strong>Could not load fixture.</strong> ${err.message}</p>`;
   }
   renderNav();
   renderBody();
