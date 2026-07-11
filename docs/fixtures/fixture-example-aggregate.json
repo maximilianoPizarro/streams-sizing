@@ -33,7 +33,7 @@
     "brokerNodes": 10,
     "controllerNodes": 3,
     "bindingConstraint": "disk",
-    "diskPerBrokerGB": 42768,
+    "diskPerBrokerGB": 51030,
     "subscriptionCoresReported": 90
   }
 }

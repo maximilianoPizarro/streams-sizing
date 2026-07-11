@@ -3,7 +3,7 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs?v=5';
+} from './sizing-engine.mjs?v=7';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -24,6 +24,8 @@ const state = {
     netSpeedGbps: 10,
     diskThroughputMBps: 400,
     maxUtil: 0.65,
+    safetyFactor: 1.6,
+    duplexMode: 'full',
     consumerGroups: 12,
     laggingConsumers: 0,
     retentionDays: 7,
@@ -37,12 +39,29 @@ const state = {
     consumerThroughputMBps: 2,
     includeRhaf: true,
     subscriptionPolicy: 'corePairs',
+    diskCapacityHeadroom: 1.25,
+    diskSegmentOverhead: 0.05,
     clientAccessPattern: 'inCluster',
     camelIntegrations: 0,
     quarkusRuntimes: 0,
+    compressionType: 'none',
+    tlsEnabled: 0,
+    totalPartitions: 0,
   },
   result: null,
 };
+
+function prepareInput(input) {
+  const out = { ...input };
+  if (!out.ramPerBrokerGB) {
+    delete out.ramPerBrokerGB;
+  }
+  out.tlsEnabled = out.tlsEnabled === 1 || out.tlsEnabled === true;
+  if (!out.totalPartitions) {
+    delete out.totalPartitions;
+  }
+  return out;
+}
 
 const navEl = document.getElementById('wizard-nav');
 const bodyEl = document.getElementById('wizard-body');
@@ -134,7 +153,20 @@ function renderWorkloadStep() {
         min: 0.01,
         max: 1,
         step: 0.01,
-        help: 'Headroom target for the binding constraint (network or disk). 0.65 means size so peak utilisation stays near 65% before the safety factor.',
+        help: 'Sustained utilisation ceiling on the binding constraint (network or disk). Combined with Safety factor below: amplification ≈ (1/maxUtil) × safetyFactor.',
+      })}
+      ${field('safetyFactor', 'Safety factor', 'number', {
+        min: 1,
+        max: 3,
+        step: 0.1,
+        help: 'Headroom for peaks, protocol overhead, and broker imbalance (default 1.6). Distinct from max utilisation — see Methodology.',
+      })}
+      ${field('duplexMode', 'Network duplex mode', 'number', {
+        options: [
+          ['full', 'Full duplex — max(netWrite, netRead)'],
+          ['half', 'Half duplex — netWrite + netRead (VPN/overlay)'],
+        ],
+        help: 'Full duplex assumes read and write can use the link concurrently. Half duplex sums both directions (conservative for constrained paths).',
       })}
       ${field('annualGrowthRatePercent', 'Annual growth rate (%)', 'number', {
         min: 0,
@@ -168,7 +200,19 @@ function renderDurabilityStep() {
       ${field('extendedRetentionPercent', 'Volume on extended retention (%)', 'number', {
         min: 0,
         max: 100,
-        help: 'Share of volume kept for the extended window. Effective days = std×(1−X) + ext×X, where X is this percent / 100.',
+        help: 'Percent of write volume (MB/s) kept on extended retention — not percent of topics. Effective days = std×(1−X) + ext×X.',
+      })}
+      ${field('diskCapacityHeadroom', 'Disk capacity headroom (×)', 'number', {
+        min: 1,
+        max: 2,
+        step: 0.05,
+        help: 'Multiplier on per-broker disk (default 1.25 ≈ 80% max utilisation). Kafka fails hard when disks fill.',
+      })}
+      ${field('diskSegmentOverhead', 'Segment/index overhead (×)', 'number', {
+        min: 0,
+        max: 0.25,
+        step: 0.01,
+        help: 'Additional fraction for log segments and index files (default 0.05 = 5%). Shown separately in trace.',
       })}
       ${field('controllerFailuresTolerated', 'Controller failures tolerated', 'number', {
         options: [
@@ -239,6 +283,28 @@ function renderConsumersStep() {
           ? 'Optional extra Quarkus Kafka apps beyond Camel. Leave 0 to skip. Camel-for-Quarkus pods are counted under Camel integrations.'
           : 'Quarkus (or equivalent) apps that produce/consume Kafka from outside OpenShift. Engine uses max(2, this value) for HA.',
       }) : ''}
+      ${field('totalPartitions', 'Total partitions (optional)', 'number', {
+        min: 0,
+        help: 'Override partition count for density check. If 0, uses estimated partitions from throughput fields. Warns when partitions×RF/brokers &gt; 4000.',
+      })}
+      ${field('ramPerBrokerGB', 'RAM per broker (GiB, optional)', 'number', {
+        min: 0,
+        help: 'Optional. When set, enables page-cache model: low RAM vs lagging consumers may increase disk I/O in trace. Leave 0 to use default (32 GiB display only).',
+      })}
+      ${field('compressionType', 'Compression (CPU estimate)', 'number', {
+        options: [
+          ['none', 'None'],
+          ['lz4', 'LZ4'],
+          ['snappy', 'Snappy'],
+          ['zstd', 'Zstd'],
+          ['gzip', 'Gzip'],
+        ],
+        help: 'Optional. Affects experimental compute CPU estimate only, not broker count.',
+      })}
+      ${field('tlsEnabled', 'TLS enabled (CPU estimate)', 'number', {
+        options: [[0, 'No'], [1, 'Yes']],
+        help: 'Optional. Adds CPU multiplier for TLS in experimental compute estimate.',
+      })}
     </div>`;
 }
 
@@ -329,8 +395,10 @@ function renderResultsStep() {
         <tr><th>Total vCPU</th><td><strong>${t.vcpus}</strong></td></tr>
         <tr><th>Total memory</th><td><strong>${t.memoryGi} Gi</strong></td></tr>
         <tr><th>Total provisioned disk</th><td><strong>${formatGb(t.diskGB)}</strong> (broker PVCs/hosts + controller disks)</td></tr>
-        <tr><th>Kafka data volume</th><td>${formatGb(t.kafkaDataDiskGB)} across cluster (RF × retention; before per-broker 10% overhead)</td></tr>
-        <tr><th>Subscription cores</th><td><strong>${t.subscriptionCoresReported}</strong> (${r.subscriptionPolicy})</td></tr>
+        <tr><th>Kafka data volume</th><td>${formatGb(t.kafkaDataDiskGB)} across cluster (RF × retention)</td></tr>
+        <tr><th>Subscription cores (licensing)</th><td><strong>${t.subscriptionCoresReported}</strong> (${r.subscriptionPolicy})</td></tr>
+        <tr><th>Amplification factor</th><td><strong>${r.amplificationFactor ?? r.trace?.amplificationFactor ?? '—'}×</strong> peak utilisation (1/maxUtil × safetyFactor)</td></tr>
+        <tr><th>Compute CPU (experimental)</th><td>${r.computeCpuEstimate?.cpuCoresPerBroker ?? '—'} cores/broker (${r.computeCpuEstimate?.compressionType ?? 'none'}${r.computeCpuEstimate?.tlsEnabled ? ', TLS' : ''})</td></tr>
         <tr><th>Ingress / binding</th><td>${r.ingressMBps} MB/s · ${r.bindingConstraint}</td></tr>
         ${withRhaf}
         ${withIntegrations}
@@ -358,6 +426,11 @@ function renderResultsStep() {
 
       ${integrationsSection}
 
+      ${(r.warnings?.length ?? 0) > 0 ? `
+      <h2>Warnings</h2>
+      <ul class="streams-warnings">${r.warnings.map((w) => `<li>${w}</li>`).join('')}</ul>
+      ` : ''}
+
       <h2>Verification trace</h2>
       <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>
 
@@ -381,7 +454,7 @@ function renderBody() {
     case 'durability': bodyEl.innerHTML = renderDurabilityStep(); bindFields(); break;
     case 'consumers': bodyEl.innerHTML = renderConsumersStep(); bindFields(); break;
     case 'results':
-      state.result = sizeKafkaCluster(state.input, DEFAULTS);
+      state.result = sizeKafkaCluster(prepareInput(state.input), DEFAULTS);
       bodyEl.innerHTML = renderResultsStep();
       bindResultsActions();
       break;
@@ -407,13 +480,21 @@ function bindFields() {
       if (
         name === 'subscriptionPolicy' ||
         name === 'platform' ||
-        name === 'clientAccessPattern'
+        name === 'clientAccessPattern' ||
+        name === 'duplexMode' ||
+        name === 'compressionType'
       ) {
         state.input[name] = value;
-        if (name === 'clientAccessPattern') {
+        if (name === 'clientAccessPattern' || name === 'duplexMode') {
           renderBody();
           return;
         }
+      } else if (name === 'tlsEnabled') {
+        state.input.tlsEnabled = Number(value);
+      } else if (name === 'ramPerBrokerGB') {
+        const n = value === '' ? 0 : Number(value);
+        if (n > 0) state.input.ramPerBrokerGB = n;
+        else delete state.input.ramPerBrokerGB;
       } else if (type === 'number') {
         state.input[name] = value === '' ? 0 : Number(value);
       } else {
@@ -477,7 +558,7 @@ btnNext.addEventListener('click', () => {
     renderNav();
     renderBody();
   } else {
-    state.result = sizeKafkaCluster(state.input, DEFAULTS);
+    state.result = sizeKafkaCluster(prepareInput(state.input), DEFAULTS);
     renderBody();
   }
 });

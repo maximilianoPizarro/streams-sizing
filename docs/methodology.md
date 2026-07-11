@@ -15,17 +15,36 @@ Given message rate `R` (msg/s), average size `S` (bytes), replication factor `RF
 writesMBps = R × S / 1,000,000
 netWrite   = RF × writesMBps
 netRead    = (consumerGroups + RF − 1) × writesMBps
-diskIO     = (RF + laggingConsumers) × writesMBps
+diskIO     = (RF + laggingConsumers) × writesMBps   (+ optional RAM/cache boost)
 
 netCapacityMBps = (netSpeedGbps / 8) × 1000
-netUtilisation  = max(netWrite, netRead) / netCapacityMBps
+netPressure     = max(netWrite, netRead)   [full duplex]
+                = netWrite + netRead       [half duplex]
+netPressure    += kraftMetadataMBps        (controllers × 2 MB/s default)
+
+netUtilisation  = netPressure / netCapacityMBps
 diskUtilisation = diskIO / diskThroughputMBps
 
 brokersNeeded = max(netUtilisation, diskUtilisation) / maxUtil
 brokerNodes   = ceil(max(brokersNeeded × safetyFactor, RF + 1))
 ```
 
-Default `safetyFactor = 1.6` (protocol overhead, imbalance, peaks).
+### Safety margins (distinct roles)
+
+| Parameter | Role |
+|-----------|------|
+| `maxUtil` | Sustained utilisation ceiling on the binding constraint (default 0.65) |
+| `safetyFactor` | Headroom for peaks, protocol overhead, broker imbalance (default 1.6) |
+
+Combined amplification (trace JSON):
+
+```
+amplificationFactor = (1 / maxUtil) × safetyFactor
+```
+
+Example: `maxUtil=0.7`, `safetyFactor=1.6` → `amplificationFactor ≈ 2.29×` peak utilisation before the RF+1 floor.
+
+These margins are **not** double-counting the same risk: `maxUtil` sizes for steady-state headroom; `safetyFactor` adds burst/ops margin on top.
 
 ### Storage
 
@@ -33,8 +52,12 @@ Default `safetyFactor = 1.6` (protocol overhead, imbalance, peaks).
 dailyDiskGB = ceil(writesMBps × 86,400 / 1,000 × RF)
 effectiveRetentionDays = stdDays × (1 − X) + extDays × X   # mixed retention
 totalDiskGB = ceil(dailyDiskGB × effectiveRetentionDays)
-diskPerBrokerGB = ceil(totalDiskGB / brokerNodes × 1.1)
+diskPerBrokerGB = ceil(totalDiskGB / brokerNodes × capacityHeadroom × (1 + segmentOverhead))
 ```
+
+Defaults: `capacityHeadroom = 1.25` (~80% max disk use), `segmentOverhead = 0.05` (index/segment rotation, auditable separately).
+
+**Mixed retention:** `X%` is the share of **write volume (MB/s)**, not topic count, kept on extended retention.
 
 ### Growth projection
 
@@ -48,7 +71,24 @@ When topic/producer/consumer throughputs are all &gt; 0:
 
 ```
 partitions = ceil(max(topicTP / producerTP, topicTP / consumerTP))
+partitionsPerBroker = totalPartitions × RF / brokerNodes
 ```
+
+If `partitionsPerBroker` exceeds ~4000 (configurable), a warning is emitted; optional `enforcePartitionLimit` increases broker count.
+
+### RAM / page cache (optional)
+
+When `ramPerBrokerGB` is set explicitly, lag read volume (5 min window per lagging consumer) is compared to `ram × cacheFraction`. If lag exceeds cache, `diskIO` is boosted (capped 2×).
+
+### Compute CPU (experimental)
+
+Separate from subscription cores (licensing):
+
+```
+cpuCoresPerBroker ≈ baseCores + (netWrite + netRead) × cpuPerMBps × compressionFactor × tlsFactor
+```
+
+Marked experimental until validated against benchmarks.
 
 ### Controllers (KRaft)
 

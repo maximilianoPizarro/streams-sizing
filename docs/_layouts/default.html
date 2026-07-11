@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if page.title %}{{ page.title }} | {% endif %}streams-sizing</title>
   <meta name="description" content="{{ site.description }}">
+  <meta property="og:title" content="{% if page.title %}{{ page.title }} | {% endif %}streams-sizing">
+  <meta property="og:description" content="{{ site.description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ '/assets/brand/og-streams-sizing.png' | absolute_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% if page.title %}{{ page.title }} | {% endif %}streams-sizing">
+  <meta name="twitter:description" content="{{ site.description }}">
+  <meta name="twitter:image" content="{{ '/assets/brand/og-streams-sizing.png' | absolute_url }}">
+  <link rel="icon" href="{{ '/assets/brand/favicon.svg' | relative_url }}" type="image/svg+xml">
+  <link rel="icon" href="{{ '/assets/brand/favicon-32.png' | relative_url }}" sizes="32x32" type="image/png">
+  <link rel="icon" href="{{ '/assets/brand/favicon-16.png' | relative_url }}" sizes="16x16" type="image/png">
+  <link rel="shortcut icon" href="{{ '/assets/brand/favicon.ico' | relative_url }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -56,7 +68,7 @@
     </footer>
   </div>
   {% if page.calculator %}
-  <script type="module" src="{{ '/assets/js/app.js' | relative_url }}?v=6"></script>
+  <script type="module" src="{{ '/assets/js/app.js' | relative_url }}?v=7"></script>
   {% endif %}
 </body>
 </html>

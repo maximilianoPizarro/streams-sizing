@@ -6,7 +6,7 @@
  * @see docs/methodology.md
  */
 
-export const ENGINE_VERSION = '1.0.0';
+export const ENGINE_VERSION = '1.1.0';
 
 export const DEFAULTS = {
   safetyFactor: 1.6,
@@ -23,41 +23,36 @@ export const DEFAULTS = {
   controllerFailuresTolerated: 1,
   jvmHeapGbMin: 5,
   jvmHeapGbMax: 8,
+  diskCapacityHeadroom: 1.25,
+  diskSegmentOverhead: 0.05,
+  cacheFraction: 0.5,
+  maxPartitionsPerBroker: 4000,
+  kraftMetadataMBpsPerController: 2,
+  cpuPerMBps: 0.002,
+  cpuBaseCores: 2,
+};
+
+const COMPRESSION_CPU_FACTORS = {
+  none: 1.0,
+  lz4: 1.15,
+  snappy: 1.2,
+  zstd: 1.35,
+  gzip: 1.5,
 };
 
 /**
  * @typedef {'openshift' | 'rhel'} Platform
- */
-
-/**
- * @typedef {Object} SizingInput
- * @property {Platform} platform
- * @property {number} messageRate - messages per second
- * @property {number} messageSizeBytes
- * @property {number} replicas
- * @property {number} netSpeedGbps
- * @property {number} diskThroughputMBps
- * @property {number} maxUtil - 0.01..1.0
- * @property {number} consumerGroups
- * @property {number} laggingConsumers
- * @property {number} retentionDays
- * @property {number} [extendedRetentionDays]
- * @property {number} [extendedRetentionPercent] - 0..100
- * @property {number} [annualGrowthRatePercent] - e.g. 8 for 8%
- * @property {number} [projectionYears] - default 0 (current year)
- * @property {number} controllerFailuresTolerated - 1 or 2
- * @property {number} [topicThroughputMBps]
- * @property {number} [producerThroughputMBps]
- * @property {number} [consumerThroughputMBps]
- * @property {boolean} [includeRhaf]
- * @property {'corePairs' | 'failoverExcluded'} [subscriptionPolicy]
- * @property {'inCluster' | 'camel' | 'external' | 'camelAndExternal'} [clientAccessPattern]
- * @property {number} [camelIntegrations] - Camel integration deployments (when using Camel)
- * @property {number} [quarkusRuntimes] - Quarkus apps (Camel-Quarkus and/or external Kafka clients)
+ * @typedef {'full' | 'half'} DuplexMode
+ * @typedef {'none' | 'lz4' | 'snappy' | 'zstd' | 'gzip'} CompressionType
  */
 
 function ceil(n) {
   return Math.ceil(n);
+}
+
+function round(n, d = 2) {
+  const f = 10 ** d;
+  return Math.round(n * f) / f;
 }
 
 function effectiveMessageRate(input) {
@@ -85,13 +80,87 @@ function controllerNodeCount(input, brokerNodes) {
   return base > 3 || brokerNodes > 50 ? 5 : 3;
 }
 
+function netPressureMBps(netWrite, netRead, duplexMode) {
+  return duplexMode === 'half' ? netWrite + netRead : Math.max(netWrite, netRead);
+}
+
+function compressionFactor(type) {
+  return COMPRESSION_CPU_FACTORS[type ?? 'none'] ?? 1.0;
+}
+
+function effectiveDiskIO(input, writesMB, rf, defaults) {
+  let diskIO = (rf + input.laggingConsumers) * writesMB;
+  let diskIOBoostFromRam = 0;
+  const ramGb = input.ramPerBrokerGB ?? defaults.memPerBroker;
+  const cacheFraction = input.cacheFraction ?? defaults.cacheFraction;
+  const cacheableRetentionGB = ramGb * cacheFraction;
+  const lagWindowSec = input.lagReadWindowSec ?? 300;
+  const lagVolumeGB =
+    input.laggingConsumers > 0
+      ? (input.laggingConsumers * writesMB * lagWindowSec) / 1000
+      : 0;
+  const applyRamModel = input.ramPerBrokerGB != null;
+  if (
+    applyRamModel &&
+    input.laggingConsumers > 0 &&
+    lagVolumeGB > cacheableRetentionGB &&
+    cacheableRetentionGB > 0
+  ) {
+    const boostFactor = Math.min(lagVolumeGB / cacheableRetentionGB, 2.0);
+    if (boostFactor > 1) {
+      diskIOBoostFromRam = diskIO * (boostFactor - 1);
+      diskIO += diskIOBoostFromRam;
+    }
+  }
+  return { diskIO, diskIOBoostFromRam, cacheableRetentionGB, ramGb, lagVolumeGB };
+}
+
+function estimateComputeCpu(input, netWrite, netRead, defaults) {
+  const compressionType = input.compressionType ?? 'none';
+  const tlsEnabled = input.tlsEnabled ?? false;
+  const tlsFactor = tlsEnabled ? 1.2 : 1.0;
+  const compFactor = compressionFactor(compressionType);
+  const netTotal = netWrite + netRead;
+  const cores =
+    defaults.cpuBaseCores + netTotal * defaults.cpuPerMBps * compFactor * tlsFactor;
+  return {
+    cpuCoresPerBroker: round(cores, 2),
+    experimental: true,
+    compressionType,
+    tlsEnabled,
+    compressionFactor: compFactor,
+    tlsFactor,
+  };
+}
+
+function partitionDensityCheck(input, partitions, brokerNodes, rf, defaults) {
+  const totalPartitions = input.totalPartitions ?? partitions;
+  if (!totalPartitions || totalPartitions <= 0 || brokerNodes <= 0) {
+    return { density: 0, warnings: [], brokersForPartitions: brokerNodes };
+  }
+  const density = (totalPartitions * rf) / brokerNodes;
+  const maxPerBroker = input.maxPartitionsPerBroker ?? defaults.maxPartitionsPerBroker;
+  const warnings = [];
+  let brokersForPartitions = brokerNodes;
+  if (density > maxPerBroker) {
+    warnings.push(
+      `Partition density ${Math.round(density)} per broker exceeds recommended ${maxPerBroker} (totalPartitions×RF/brokers).`
+    );
+    if (input.enforcePartitionLimit) {
+      brokersForPartitions = ceil((totalPartitions * rf) / maxPerBroker);
+    }
+  }
+  return { density: round(density, 1), warnings, brokersForPartitions, totalPartitions };
+}
+
 /**
  * Core analytical sizing (Andy Yuen model).
- * @param {SizingInput} input
+ * @param {import('./sizing-engine.mjs').SizingInput} input
  * @param {typeof DEFAULTS} defaults
  */
 export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   const trace = {};
+  const warnings = [];
   const rate = effectiveMessageRate(input);
   trace.messageRateEffective = rate;
   trace.projectionYears = input.projectionYears ?? 0;
@@ -103,14 +172,35 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   const rf = input.replicas;
   const netWrite = rf * writesMB;
   const netRead = (input.consumerGroups + rf - 1) * writesMB;
-  const diskIO = (rf + input.laggingConsumers) * writesMB;
   trace.netWriteMBps = netWrite;
   trace.netReadMBps = netRead;
+
+  const duplexMode = input.duplexMode ?? 'full';
+  trace.duplexMode = duplexMode;
+
+  const {
+    diskIO,
+    diskIOBoostFromRam,
+    cacheableRetentionGB,
+    ramGb,
+  } = effectiveDiskIO(input, writesMB, rf, defaults);
   trace.diskReadWriteMBps = diskIO;
+  trace.diskIOBoostFromRam = round(diskIOBoostFromRam, 4);
+  trace.ramPerBrokerGB = ramGb;
+  trace.cacheableRetentionGB = round(cacheableRetentionGB, 2);
 
   const netCapacityMBps = (input.netSpeedGbps / 8) * 1000;
-  const netUtilisation = Math.max(netWrite, netRead) / netCapacityMBps;
-  trace.netUtilisation = netUtilisation;
+  let netPressure = netPressureMBps(netWrite, netRead, duplexMode);
+  trace.netPressureMBps = round(netPressure, 4);
+
+  let controllerNodesEstimate = controllerNodeCount(input, rf + 1);
+  const kraftMetadataMBps =
+    controllerNodesEstimate * (input.kraftMetadataMBpsPerController ?? defaults.kraftMetadataMBpsPerController);
+  netPressure += kraftMetadataMBps;
+  trace.kraftMetadataMBps = kraftMetadataMBps;
+
+  const netUtilisation = netPressure / netCapacityMBps;
+  trace.netUtilisation = round(netUtilisation, 6);
 
   let vcpusPerBroker = defaults.vcpusPerBroker;
   if (input.netSpeedGbps > 3.0 && netUtilisation > 0.3) {
@@ -120,21 +210,24 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   trace.vcpusPerBroker = vcpusPerBroker;
 
   const diskUtilisation = diskIO / input.diskThroughputMBps;
-  trace.diskUtilisation = diskUtilisation;
+  trace.diskUtilisation = round(diskUtilisation, 6);
 
   const maxUtilisation = Math.max(diskUtilisation, netUtilisation);
-  trace.maxUtilisation = maxUtilisation;
+  trace.maxUtilisation = round(maxUtilisation, 6);
 
-  const brokersNeeded = maxUtilisation / input.maxUtil;
-  trace.brokersNeededRaw = brokersNeeded;
+  const maxUtil = input.maxUtil;
+  const safetyFactor = input.safetyFactor ?? defaults.safetyFactor;
+  trace.maxUtil = maxUtil;
+  trace.safetyFactor = safetyFactor;
+  trace.amplificationFactor = round((1 / maxUtil) * safetyFactor, 4);
 
-  const brokersByBottleneck = Math.max(
-    brokersNeeded * defaults.safetyFactor,
-    rf + 1
-  );
-  trace.brokersNeededByBottleneck = brokersByBottleneck;
+  const brokersNeeded = maxUtilisation / maxUtil;
+  trace.brokersNeededRaw = round(brokersNeeded, 6);
 
-  const brokerNodes = ceil(brokersByBottleneck);
+  let brokersByBottleneck = Math.max(brokersNeeded * safetyFactor, rf + 1);
+  trace.brokersNeededByBottleneck = round(brokersByBottleneck, 4);
+
+  let brokerNodes = ceil(brokersByBottleneck);
   const controllerNodes = controllerNodeCount(input, brokerNodes);
   trace.controllerNodes = controllerNodes;
 
@@ -147,8 +240,14 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   trace.dailyDiskUsageGB = dailyDiskUsageGB;
   trace.totalDiskStorageGB = totalDiskStorageGB;
 
-  const diskPerBrokerGB = ceil((totalDiskStorageGB / brokerNodes) * 1.1);
-  trace.diskPerBrokerOverheadFactor = 1.1;
+  const capacityHeadroom = input.diskCapacityHeadroom ?? defaults.diskCapacityHeadroom;
+  const segmentOverhead = input.diskSegmentOverhead ?? defaults.diskSegmentOverhead;
+  trace.capacityHeadroom = capacityHeadroom;
+  trace.segmentOverhead = segmentOverhead;
+
+  const diskPerBrokerGB = ceil(
+    (totalDiskStorageGB / brokerNodes) * capacityHeadroom * (1 + segmentOverhead)
+  );
 
   let producersNeeded = 0;
   let consumersNeeded = 0;
@@ -164,13 +263,29 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     trace.consumersNeeded = consumersNeeded;
   }
 
+  const partCheck = partitionDensityCheck(input, partitions, brokerNodes, rf, defaults);
+  trace.partitionsPerBroker = partCheck.density;
+  if (partCheck.warnings.length) {
+    warnings.push(...partCheck.warnings);
+  }
+  if (partCheck.brokersForPartitions > brokerNodes) {
+    brokerNodes = partCheck.brokersForPartitions;
+    trace.brokersAdjustedForPartitions = brokerNodes;
+  }
+
   const bindingConstraint =
     diskUtilisation >= netUtilisation ? 'disk' : 'network';
   trace.bindingConstraint = bindingConstraint;
 
+  const computeCpu = estimateComputeCpu(input, netWrite, netRead, defaults);
+
   const subscriptionCorePairs = Math.floor((brokerNodes * vcpusPerBroker) / 2);
   const subscriptionFailoverExcluded = (brokerNodes - 1) * vcpusPerBroker;
   const policy = input.subscriptionPolicy ?? 'corePairs';
+
+  const finalDiskPerBrokerGB = ceil(
+    (totalDiskStorageGB / brokerNodes) * capacityHeadroom * (1 + segmentOverhead)
+  );
 
   const clusterTotals = {
     nodes: brokerNodes + controllerNodes,
@@ -179,7 +294,7 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     vcpus: brokerNodes * vcpusPerBroker + controllerNodes * defaults.vcpusPerController,
     memoryGi: brokerNodes * defaults.memPerBroker + controllerNodes * defaults.memPerController,
     diskGB:
-      brokerNodes * diskPerBrokerGB + controllerNodes * defaults.diskPerController,
+      brokerNodes * finalDiskPerBrokerGB + controllerNodes * defaults.diskPerController,
     kafkaDataDiskGB: totalDiskStorageGB,
     subscriptionCoresReported:
       policy === 'failoverExcluded'
@@ -192,7 +307,7 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     controllerNodes,
     vcpusPerBroker,
     memPerBroker: defaults.memPerBroker,
-    diskPerBrokerGB,
+    diskPerBrokerGB: finalDiskPerBrokerGB,
     vcpusPerController: defaults.vcpusPerController,
     memPerController: defaults.memPerController,
     diskPerController: defaults.diskPerController,
@@ -233,7 +348,7 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     totalDiskStorageGB,
     brokerNodes,
     controllerNodes,
-    diskPerBrokerGB,
+    diskPerBrokerGB: finalDiskPerBrokerGB,
     memPerBrokerGB: defaults.memPerBroker,
     vcpusPerBroker,
     vcpusPerController: defaults.vcpusPerController,
@@ -249,6 +364,9 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     retentionEffectiveDays,
     jvmHeapRecommendationGb: `${defaults.jvmHeapGbMin}-${defaults.jvmHeapGbMax}`,
     clientAccessPattern: input.clientAccessPattern ?? 'inCluster',
+    amplificationFactor: trace.amplificationFactor,
+    computeCpuEstimate: computeCpu,
+    warnings,
     clusterTotals,
     platformDetails: platformResult,
     rhaf,
@@ -269,11 +387,6 @@ function sumComponentTotals(comps) {
       0
     ),
   };
-}
-
-function round(n, d = 2) {
-  const f = 10 ** d;
-  return Math.round(n * f) / f;
 }
 
 function buildPlatformResult(platform, spec) {
@@ -353,11 +466,8 @@ function buildPlatformResult(platform, spec) {
   };
 }
 
-/**
- * RHAF complementary component estimates (non-Kafka core).
- */
 function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
-  const drEnabled = (input.projectionYears ?? 0) >= 0;
+  const drEnabled = input.includeDr === true;
   return {
     disclaimer:
       'Orientative sizing for RHAF components. Validate against product documentation and workload.',
@@ -415,11 +525,6 @@ function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
   };
 }
 
-/**
- * Orientative Camel / Quarkus / external-client runtime estimates.
- * Applies when the client uses Camel integrations and/or consumes Kafka
- * directly from outside OpenShift (instead of only in-cluster clients).
- */
 function estimateIntegrations(input, { writesMB }) {
   const pattern = input.clientAccessPattern ?? 'inCluster';
   if (pattern === 'inCluster') {
@@ -454,9 +559,7 @@ function estimateIntegrations(input, { writesMB }) {
 
   if (wantsExternal || wantsCamel) {
     const requested = input.quarkusRuntimes ?? 0;
-    const defaultCount = wantsExternal ? 2 : wantsCamel ? 0 : 0;
-    // When Camel-only: extra pure Quarkus clients optional (0 unless specified).
-    // When external / both: always size Quarkus (or equivalent) runtimes outside/in addition.
+    const defaultCount = wantsExternal ? 2 : 0;
     const useCount = requested > 0 ? requested : defaultCount;
     if (useCount > 0 || wantsExternal) {
       const instances = Math.max(2, ceil(useCount > 0 ? useCount : 2));

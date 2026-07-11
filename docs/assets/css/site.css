@@ -378,6 +378,17 @@ body {
   max-width: 52rem;
 }
 
+.streams-warnings {
+  margin: 0 0 1.25rem;
+  padding-left: 1.25rem;
+  color: #151515;
+  line-height: 1.5;
+}
+
+.streams-warnings li {
+  margin-bottom: 0.35rem;
+}
+
 .streams-disclaimer__title {
   font-weight: 700;
   margin: 0 0 0.35rem;
