@@ -3,7 +3,7 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs?v=11';
+} from './sizing-engine.mjs?v=12';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
