@@ -14,21 +14,24 @@
   <div class="streams-page" id="page-main">
     <header class="streams-masthead" role="banner">
       <div class="streams-masthead__main">
-        <a class="streams-masthead__brand" href="{{ '/' | relative_url }}">
+      <div class="streams-masthead__brand">
+        <a class="streams-masthead__logo-link" href="{{ '/' | relative_url }}" aria-label="streams-sizing home">
           <img
             src="{{ '/assets/brand/red-hat-logo-on-dark.svg' | relative_url }}"
-            alt="Red Hat"
+            alt=""
             class="streams-masthead__logo"
             width="120"
             height="32"
           />
-          <span class="streams-masthead__product">
-            <span class="streams-masthead__product-name">Streams for Apache Kafka</span>
-          </span>
         </a>
-        <span class="streams-masthead__tool">streams-sizing</span>
+        <div class="streams-masthead__titles">
+          <span class="streams-masthead__product-name">Streams for Apache Kafka</span>
+          <span class="streams-masthead__tool">streams-sizing</span>
+        </div>
+      </div>
       </div>
       <nav class="streams-nav" aria-label="Secondary">
+        <a href="{{ '/usage-walkthrough.html' | relative_url }}">Walkthrough</a>
         <a href="{{ '/methodology.html' | relative_url }}">Methodology</a>
         <a href="{{ '/verification.html' | relative_url }}">Verification</a>
       </nav>

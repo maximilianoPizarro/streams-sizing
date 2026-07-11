@@ -50,7 +50,7 @@ function renderNav() {
     let cls = 'streams-wizard__step';
     if (i === state.step) cls += ' is-current';
     else if (i < state.step) cls += ' is-complete';
-    return `<li class="${cls}" role="listitem"><span class="streams-wizard__step-num">${i + 1}.</span> ${s.title}</li>`;
+    return `<li class="${cls}"><span class="streams-wizard__step-num">${i + 1}.</span> ${s.title}</li>`;
   }).join('');
 }
 
@@ -193,7 +193,7 @@ function renderResultsStep() {
           <input type="file" id="import-file" accept="application/json" hidden />
         </label>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-light">Load fixture: light</button>
-        <button type="button" class="streams-btn streams-btn--link" id="btn-load-heavy">Load fixture: heavy</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-example">Load fixture: aggregate example</button>
       </div>
     </div>`;
 }
@@ -264,13 +264,14 @@ function bindResultsActions() {
 
   document.getElementById('btn-load-light')?.addEventListener('click', () => loadFixture('fixture-light'));
   document.getElementById('btn-load-heavy')?.addEventListener('click', () => loadFixture('fixture-heavy'));
+  document.getElementById('btn-load-example')?.addEventListener('click', () => loadFixture('fixture-example-aggregate'));
 }
 
-async function loadFixture(name) {
+async function loadFixture(name, targetStep = null) {
   const res = await fetch(`assets/fixtures/${name}.json`);
   const fx = await res.json();
   state.input = { ...state.input, ...fx.input };
-  state.step = STEPS.length - 1;
+  state.step = targetStep ?? STEPS.length - 1;
   renderNav();
   renderBody();
 }
@@ -296,3 +297,10 @@ btnNext.addEventListener('click', () => {
 
 renderNav();
 renderBody();
+
+const demoParams = new URLSearchParams(window.location.search);
+const demoFixture = demoParams.get('fixture');
+const demoStep = demoParams.get('step');
+if (demoFixture) {
+  loadFixture(demoFixture, demoStep != null ? Number(demoStep) : null);
+}

@@ -1,0 +1,32 @@
+{
+  "id": "fixture-example-aggregate",
+  "description": "Anonymized high-throughput production example. ~500 MB/s peak, 8 KiB messages, 72 h retention, RF=3.",
+  "input": {
+    "platform": "openshift",
+    "messageRate": 61035,
+    "messageSizeBytes": 8192,
+    "replicas": 3,
+    "netSpeedGbps": 25,
+    "diskThroughputMBps": 400,
+    "maxUtil": 0.65,
+    "consumerGroups": 3,
+    "laggingConsumers": 0,
+    "retentionDays": 3,
+    "extendedRetentionDays": 0,
+    "extendedRetentionPercent": 0,
+    "annualGrowthRatePercent": 0,
+    "projectionYears": 0,
+    "controllerFailuresTolerated": 1,
+    "topicThroughputMBps": 0,
+    "producerThroughputMBps": 0,
+    "consumerThroughputMBps": 0,
+    "includeRhaf": true,
+    "subscriptionPolicy": "failoverExcluded"
+  },
+  "expected": {
+    "ingressMBps": 500,
+    "dailyDiskUsageGBMin": 129000,
+    "brokerNodesMin": 4,
+    "controllerNodes": 3
+  }
+}

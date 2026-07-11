@@ -50,19 +50,17 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.875rem;
-  text-decoration: none;
-  color: inherit;
   min-width: 0;
 }
 
-.streams-masthead__logo {
-  display: block;
-  height: 32px;
-  width: auto;
+.streams-masthead__logo-link {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
+  line-height: 0;
 }
 
-.streams-masthead__product {
+.streams-masthead__titles {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
@@ -79,9 +77,6 @@ body {
 .streams-masthead__tool {
   font-size: 0.8125rem;
   color: #c7c7c7;
-  border-left: 1px solid #4f4f4f;
-  padding-left: 1rem;
-  white-space: nowrap;
 }
 
 .streams-nav {
@@ -154,6 +149,12 @@ body {
   gap: 0.5rem 1rem;
   border-bottom: 1px solid var(--streams-border);
   background: #fafafa;
+}
+
+.streams-masthead__logo {
+  display: block;
+  height: 32px;
+  width: auto;
 }
 
 .streams-wizard__step-num {
