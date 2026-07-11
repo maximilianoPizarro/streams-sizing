@@ -37,10 +37,8 @@ test('fixture-light: year-3 projection', () => {
 
 test('fixture-light: mixed retention effective days', () => {
   const fx = loadFixture('fixture-light');
-  const days = fx.input.retentionDays * (1 - 0.2) + fx.input.extendedRetentionDays * 0.2;
-  assert.equal(Math.round(days * 10) / 10, fx.expected.mixedRetentionEffectiveDays);
   const result = sizeKafkaCluster(fx.input);
-  assert.equal(result.retentionEffectiveDays, days);
+  assert.equal(result.retentionEffectiveDays, fx.expected.mixedRetentionEffectiveDays);
 });
 
 test('fixture-light: trace is reproducible', () => {
@@ -325,4 +323,28 @@ test('economize-light: lower disk, same brokers, suggestions present', () => {
   assert.equal(result.clusterTotals.vcpus, fx.expected.clusterTotals.vcpus);
   assert.ok(result.economizeSuggestions.length >= 3);
   assert.ok(result.economizeSuggestions.some((s) => s.id === 'openshift-semantics'));
+});
+
+test('retentionEffectiveDays is rounded (no IEEE noise)', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.retentionEffectiveDays, 14.6);
+  assert.equal(result.trace.retentionEffectiveDays, 14.6);
+});
+
+test('enforcePartitionLimit recalculates controllers when brokers > 50', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    totalPartitions: 200000,
+    enforcePartitionLimit: true,
+  });
+  assert.ok(result.brokerNodes > 50);
+  assert.equal(result.controllerNodes, 5);
+});
+
+test('includeRhaf: 0 disables RHAF (numeric false)', () => {
+  const fx = loadFixture('fixture-light');
+  const result = sizeKafkaCluster({ ...fx.input, includeRhaf: 0 });
+  assert.equal(result.rhaf, null);
 });

@@ -128,11 +128,27 @@ Levers that usually lower cost or reported entitlement:
 |-------|--------|
 | Shorter retention / less mixed retention | Cuts PVC / data volume; brokers unchanged if network-bound |
 | `includeRhaf: false` | Removes add-on pod footprint when RHAF is out of scope |
-| Accurate `consumerGroups` | Avoids overstated net-read and extra brokers |
+| `includeRhaf` / `includeDr` | Toggle RHAF add-ons and MirrorMaker 2 in Durability |
 | Subscription policy (core pairs vs failover excluded) | Changes **reported** cores, not physical size |
 | Pack pods on right-sized workers / LSO vs ODF | OpenShift platform cost; not Kafka formula |
 
 Sample scenario: `docs/fixtures/fixture-economize-light.json` (3-day retention, no RHAF).
+
+## Architecture diagrams (separate module)
+
+Topology diagrams are **not** part of the sizing formulas. Use
+[`engine/architecture-diagram.mjs`](../engine/architecture-diagram.mjs) to turn a scenario
+JSON / sizing result into Mermaid (or PlantUML):
+
+```js
+import { sizeKafkaCluster } from './sizing-engine.mjs';
+import { architectureDiagramFromScenario } from './architecture-diagram.mjs';
+
+const result = sizeKafkaCluster(input);
+const { diagram } = architectureDiagramFromScenario({ input, result }, { format: 'mermaid' });
+```
+
+The Results step exposes Copy / Download `.mmd`. Sync with `npm run sync-engine`.
 
 ## Platform outputs
 

@@ -17,11 +17,14 @@ Golden fixtures (anonymized workloads):
 
 | Fixture | Description |
 |---------|-------------|
-| `docs/fixtures/fixture-light.json` | ~1400 msg/s, 8 KB, RF=3, mixed retention |
-| `docs/fixtures/fixture-heavy.json` | ~500 MB/s ingress, high consumer fan-out |
-| `docs/fixtures/fixture-example-aggregate.json` | ~500 MB/s prod example → **10 brokers**, 388800 GB |
+| `docs/fixtures/fixture-light.json` | ~1400 msg/s, 8 KB, RF=3, mixed retention → **4 brokers** |
+| `docs/fixtures/fixture-economize-light.json` | Same ingress, 3-day retention, no RHAF → lower disk |
+| `docs/fixtures/fixture-heavy.json` | ~500 MB/s ingress, **high consumer fan-out** → **16 brokers** |
+| `docs/fixtures/fixture-example-aggregate.json` | ~500 MB/s prod example (low fan-out) → **10 brokers**, 388800 GB |
 
-Tests assert throughput, storage, KRaft controller count, platform adapters, RHAF output, and export/import reproducibility.
+The GitHub Pages UI loads copies under `docs/assets/fixtures/` (Jekyll excludes `docs/fixtures/` from the site build). Keep both trees in sync with `npm run sync-engine`.
+
+Tests assert throughput, storage, KRaft controller count, platform adapters, RHAF output, architecture Mermaid export, and export/import reproducibility.
 
 Reproduce any scenario:
 

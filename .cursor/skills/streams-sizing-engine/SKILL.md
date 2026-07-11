@@ -13,8 +13,10 @@ description: >-
 | Path | Role |
 |------|------|
 | `engine/sizing-engine.mjs` | Source of truth |
+| `engine/architecture-diagram.mjs` | Mermaid/PlantUML from scenario JSON (no sizing math) |
 | `docs/assets/js/sizing-engine.mjs` | Browser copy — sync only |
-| `scripts/sync-engine.mjs` | `npm run sync-engine` |
+| `docs/assets/js/architecture-diagram.mjs` | Browser copy — sync only |
+| `scripts/sync-engine.mjs` | `npm run sync-engine` (engine + diagram + fixtures) |
 | `docs/fixtures/*.json` | Golden inputs + expected outputs |
 | `docs/assets/fixtures/` | Copy of fixtures for static site |
 | `tests/sizing-engine.test.mjs` | Node test runner |

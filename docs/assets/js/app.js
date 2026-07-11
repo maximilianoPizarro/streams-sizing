@@ -3,7 +3,9 @@ import {
   exportScenario,
   importScenario,
   DEFAULTS,
-} from './sizing-engine.mjs?v=12';
+  ENGINE_VERSION,
+} from './sizing-engine.mjs?v=13';
+import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=13';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -13,43 +15,47 @@ const STEPS = [
   { id: 'results', title: 'Results' },
 ];
 
-/** Defaults match docs/fixtures/fixture-light.json (repo sample). */
+/** Defaults match docs/fixtures/fixture-light.json (repo sample) plus calibration fields. */
+const DEFAULT_INPUT = {
+  platform: 'openshift',
+  messageRate: 1400,
+  messageSizeBytes: 8000,
+  replicas: 3,
+  netSpeedGbps: 10,
+  diskThroughputMBps: 400,
+  maxUtil: 0.65,
+  safetyFactor: 1.6,
+  duplexMode: 'full',
+  consumerGroups: 12,
+  laggingConsumers: 0,
+  retentionDays: 7,
+  extendedRetentionDays: 45,
+  extendedRetentionPercent: 20,
+  annualGrowthRatePercent: 8,
+  projectionYears: 0,
+  controllerFailuresTolerated: 1,
+  topicThroughputMBps: 11,
+  producerThroughputMBps: 2,
+  consumerThroughputMBps: 2,
+  includeRhaf: 1,
+  includeDr: 0,
+  subscriptionPolicy: 'corePairs',
+  diskCapacityHeadroom: 1.25,
+  diskSegmentOverhead: 0.05,
+  clientAccessPattern: 'inCluster',
+  camelIntegrations: 0,
+  quarkusRuntimes: 0,
+  compressionType: 'none',
+  tlsEnabled: 0,
+  totalPartitions: 0,
+};
+
 const state = {
   step: 0,
-  input: {
-    platform: 'openshift',
-    messageRate: 1400,
-    messageSizeBytes: 8000,
-    replicas: 3,
-    netSpeedGbps: 10,
-    diskThroughputMBps: 400,
-    maxUtil: 0.65,
-    safetyFactor: 1.6,
-    duplexMode: 'full',
-    consumerGroups: 12,
-    laggingConsumers: 0,
-    retentionDays: 7,
-    extendedRetentionDays: 45,
-    extendedRetentionPercent: 20,
-    annualGrowthRatePercent: 8,
-    projectionYears: 0,
-    controllerFailuresTolerated: 1,
-    topicThroughputMBps: 11,
-    producerThroughputMBps: 2,
-    consumerThroughputMBps: 2,
-    includeRhaf: true,
-    subscriptionPolicy: 'corePairs',
-    diskCapacityHeadroom: 1.25,
-    diskSegmentOverhead: 0.05,
-    clientAccessPattern: 'inCluster',
-    camelIntegrations: 0,
-    quarkusRuntimes: 0,
-    compressionType: 'none',
-    tlsEnabled: 0,
-    totalPartitions: 0,
-  },
+  input: { ...DEFAULT_INPUT },
   result: null,
   lastCalculatedAt: null,
+  loadedFixtureId: null,
 };
 
 function prepareInput(input) {
@@ -58,6 +64,8 @@ function prepareInput(input) {
     delete out.ramPerBrokerGB;
   }
   out.tlsEnabled = out.tlsEnabled === 1 || out.tlsEnabled === true;
+  out.includeRhaf = out.includeRhaf === true || out.includeRhaf === 1 || out.includeRhaf === '1' || out.includeRhaf === 'true';
+  out.includeDr = out.includeDr === true || out.includeDr === 1 || out.includeDr === '1' || out.includeDr === 'true';
   if (!out.totalPartitions) {
     delete out.totalPartitions;
   }
@@ -84,6 +92,8 @@ function applyFieldValue(el) {
     state.input[name] = value;
   } else if (name === 'tlsEnabled') {
     state.input.tlsEnabled = Number(value);
+  } else if (name === 'includeRhaf' || name === 'includeDr') {
+    state.input[name] = Number(value);
   } else if (name === 'ramPerBrokerGB') {
     const n = value === '' ? 0 : Number(value);
     if (n > 0) state.input.ramPerBrokerGB = n;
@@ -260,6 +270,20 @@ function renderDurabilityStep() {
         ],
         help: 'How subscription cores are reported. Core pairs is the classic pairing model; failover excluded omits one broker as spare capacity.',
       })}
+      ${field('includeRhaf', 'Include RHAF complementary components', 'number', {
+        options: [
+          [1, 'Yes — Registry, Bridge, Console, Keycloak, Cruise Control'],
+          [0, 'No — Kafka NodePools only'],
+        ],
+        help: 'Adds orientative OpenShift footprint for RHAF add-ons. Not Streams broker subscription cores. Toggle off for Kafka-only planning.',
+      })}
+      ${field('includeDr', 'Include DR (MirrorMaker 2)', 'number', {
+        options: [
+          [0, 'No'],
+          [1, 'Yes — size MirrorMaker 2 workers'],
+        ],
+        help: 'Only when cross-cluster replication is in scope. Adds MM2 Connect workers; does not size a full second Kafka cluster.',
+      })}
     </div>`;
 }
 
@@ -410,12 +434,48 @@ function renderResultsStep() {
       </p>
     `;
 
+  const resultsIntro = state.loadedFixtureId
+    ? `Results for loaded scenario <code>${state.loadedFixtureId}</code> (engine ${ENGINE_VERSION}). Change inputs and Recalculate, or export JSON for an auditable copy.`
+    : `Results for the form inputs above (engine ${ENGINE_VERSION}). Leaving the wizard defaults reproduces the repository <code>fixture-light</code> sample. Export JSON to keep an auditable scenario.`;
+
+  let architectureBlock = '';
+  try {
+    const arch = architectureDiagramFromScenario(
+      { name: state.loadedFixtureId ?? 'custom', input: prepareInput(state.input), result: r },
+      { format: 'mermaid' }
+    );
+    architectureBlock = `
+      <h2>Architecture diagram</h2>
+      <p class="streams-step-intro">
+        Generated from this scenario by the separate <code>architecture-diagram</code> module (Mermaid).
+        Copy into any Mermaid renderer; it does not change sizing math.
+      </p>
+      <pre class="streams-trace streams-arch-diagram" id="architecture-mermaid">${arch.diagram.replace(/</g, '&lt;')}</pre>
+      <div class="streams-actions" style="margin-top:0">
+        <button type="button" class="streams-btn streams-btn--secondary" id="btn-copy-arch">Copy Mermaid</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-download-arch">Download .mmd</button>
+      </div>`;
+  } catch (err) {
+    architectureBlock = `<p class="streams-step-intro"><small>Architecture diagram unavailable: ${err.message}</small></p>`;
+  }
+
+  const rhafSection = r.rhaf
+    ? `
+      <h2>RHAF complementary components</h2>
+      <p><small>${r.rhaf?.disclaimer ?? ''}</small></p>
+      <table class="streams-results-table">
+        ${rhafRows}
+        ${r.rhaf?.totals ? `<tr><th>RHAF subtotal</th><td>${r.rhaf.totals.instances} instances · ${r.rhaf.totals.vcpus} vCPU · ${r.rhaf.totals.memoryGi} Gi RAM</td></tr>` : ''}
+        ${r.rhaf?.kafkaExporter ? `<tr><th>Kafka Exporter</th><td>${r.rhaf.kafkaExporter.vcpu} vCPU · ${r.rhaf.kafkaExporter.memoryGi} Gi — ${r.rhaf.kafkaExporter.note}</td></tr>` : ''}
+      </table>`
+    : `
+      <h2>RHAF complementary components</h2>
+      <p class="streams-step-intro">Not included — <code>includeRhaf</code> is off. Enable it in Durability to size Registry, Bridge, Console, and related add-ons.</p>`;
+
   return `
     <div class="streams-results">
       <p class="streams-step-intro">
-        Results for the inputs above. If you kept the defaults, this matches the repository
-        <code>fixture-light</code> sample — replace inputs with your workload and recalculate.
-        Export JSON to keep an auditable, reproducible scenario.
+        ${resultsIntro}
         ${state.lastCalculatedAt
           ? `<span class="streams-calc-stamp" data-calc-stamp>Calculated at ${new Date(state.lastCalculatedAt).toLocaleTimeString()}</span>`
           : ''}
@@ -471,12 +531,7 @@ function renderResultsStep() {
           </li>`).join('')}
       </ul>
 
-      <h2>RHAF complementary components</h2>
-      <p><small>${r.rhaf?.disclaimer ?? ''}</small></p>
-      <table class="streams-results-table">
-        ${rhafRows}
-        ${r.rhaf?.totals ? `<tr><th>RHAF subtotal</th><td>${r.rhaf.totals.instances} instances · ${r.rhaf.totals.vcpus} vCPU · ${r.rhaf.totals.memoryGi} Gi RAM</td></tr>` : ''}
-      </table>
+      ${rhafSection}
 
       ${integrationsSection}
 
@@ -484,6 +539,8 @@ function renderResultsStep() {
       <h2>Warnings</h2>
       <ul class="streams-warnings">${r.warnings.map((w) => `<li>${w}</li>`).join('')}</ul>
       ` : ''}
+
+      ${architectureBlock}
 
       <h2>Verification trace</h2>
       <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>
@@ -496,6 +553,7 @@ function renderResultsStep() {
         </label>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-light">Load fixture: light</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-economize">Load fixture: economize light</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-heavy">Load fixture: heavy</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-example">Load fixture: aggregate example</button>
       </div>
     </div>`;
@@ -563,7 +621,19 @@ function bindResultsActions() {
     const file = e.target.files?.[0];
     if (!file) return;
     const json = importScenario(JSON.parse(await file.text()));
-    state.input = { ...state.input, ...json.input };
+    state.input = { ...DEFAULT_INPUT, ...json.input };
+    if (typeof state.input.includeRhaf === 'boolean') {
+      state.input.includeRhaf = state.input.includeRhaf ? 1 : 0;
+    }
+    if (typeof state.input.includeDr === 'boolean') {
+      state.input.includeDr = state.input.includeDr ? 1 : 0;
+    }
+    state.loadedFixtureId = json.name ?? 'imported';
+    if (json.result?.engineVersion && json.result.engineVersion !== ENGINE_VERSION) {
+      console.warn(
+        `Imported scenario engineVersion ${json.result.engineVersion} differs from current ${ENGINE_VERSION}; results recalculated.`
+      );
+    }
     state.step = STEPS.length - 1;
     renderNav();
     renderBody();
@@ -573,6 +643,23 @@ function bindResultsActions() {
   document.getElementById('btn-load-economize')?.addEventListener('click', () => loadFixture('fixture-economize-light'));
   document.getElementById('btn-load-heavy')?.addEventListener('click', () => loadFixture('fixture-heavy'));
   document.getElementById('btn-load-example')?.addEventListener('click', () => loadFixture('fixture-example-aggregate'));
+
+  document.getElementById('btn-copy-arch')?.addEventListener('click', async () => {
+    const text = document.getElementById('architecture-mermaid')?.textContent ?? '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* ignore */
+    }
+  });
+  document.getElementById('btn-download-arch')?.addEventListener('click', () => {
+    const text = document.getElementById('architecture-mermaid')?.textContent ?? '';
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'streams-sizing-architecture.mmd';
+    a.click();
+  });
 }
 
 async function loadFixture(name, targetStep = null) {
@@ -582,7 +669,14 @@ async function loadFixture(name, targetStep = null) {
     throw new Error(`Fixture not found: ${name}`);
   }
   const fx = await res.json();
-  state.input = { ...state.input, ...fx.input };
+  state.input = { ...DEFAULT_INPUT, ...fx.input };
+  if (typeof state.input.includeRhaf === 'boolean') {
+    state.input.includeRhaf = state.input.includeRhaf ? 1 : 0;
+  }
+  if (typeof state.input.includeDr === 'boolean') {
+    state.input.includeDr = state.input.includeDr ? 1 : 0;
+  }
+  state.loadedFixtureId = fx.id ?? name;
   state.step = targetStep ?? STEPS.length - 1;
   renderNav();
   renderBody();

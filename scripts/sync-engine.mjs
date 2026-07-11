@@ -1,11 +1,22 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const src = join(root, 'engine', 'sizing-engine.mjs');
-const dest = join(root, 'docs', 'assets', 'js', 'sizing-engine.mjs');
+const destDir = join(root, 'docs', 'assets', 'js');
+mkdirSync(destDir, { recursive: true });
 
-mkdirSync(dirname(dest), { recursive: true });
-writeFileSync(dest, readFileSync(src, 'utf8'));
-console.log('Synced engine -> docs/assets/js/sizing-engine.mjs');
+for (const name of ['sizing-engine.mjs', 'architecture-diagram.mjs']) {
+  const src = join(root, 'engine', name);
+  const dest = join(destDir, name);
+  writeFileSync(dest, readFileSync(src, 'utf8'));
+  console.log(`Synced engine/${name} -> docs/assets/js/${name}`);
+}
+
+const fxSrc = join(root, 'docs', 'fixtures');
+const fxDest = join(root, 'docs', 'assets', 'fixtures');
+mkdirSync(fxDest, { recursive: true });
+for (const f of readdirSync(fxSrc).filter((n) => n.endsWith('.json'))) {
+  writeFileSync(join(fxDest, f), readFileSync(join(fxSrc, f), 'utf8'));
+}
+console.log('Synced fixtures -> docs/assets/fixtures/');

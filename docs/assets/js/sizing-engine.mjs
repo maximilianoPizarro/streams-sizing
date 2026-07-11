@@ -6,7 +6,7 @@
  * @see docs/methodology.md
  */
 
-export const ENGINE_VERSION = '1.1.0';
+export const ENGINE_VERSION = '1.1.1';
 
 export const DEFAULTS = {
   safetyFactor: 1.6,
@@ -71,13 +71,19 @@ function effectiveRetentionDays(input) {
   if (extDays <= 0 || extPct <= 0) {
     return std;
   }
-  return std * (1 - extPct) + extDays * extPct;
+  return round(std * (1 - extPct) + extDays * extPct, 2);
 }
 
 function controllerNodeCount(input, brokerNodes) {
   const tolerated = input.controllerFailuresTolerated ?? 1;
   const base = tolerated === 2 ? 5 : 3;
   return base > 3 || brokerNodes > 50 ? 5 : 3;
+}
+
+function isEnabledFlag(value, defaultEnabled = true) {
+  if (value === undefined || value === null) return defaultEnabled;
+  if (value === false || value === 0 || value === '0' || value === 'false') return false;
+  return true;
 }
 
 function netPressureMBps(netWrite, netRead, duplexMode) {
@@ -167,13 +173,13 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   trace.annualGrowthRatePercent = input.annualGrowthRatePercent ?? 0;
 
   const writesMB = (rate * input.messageSizeBytes) / 1_000_000;
-  trace.writesMBps = writesMB;
+  trace.writesMBps = round(writesMB, 4);
 
   const rf = input.replicas;
   const netWrite = rf * writesMB;
   const netRead = (input.consumerGroups + rf - 1) * writesMB;
-  trace.netWriteMBps = netWrite;
-  trace.netReadMBps = netRead;
+  trace.netWriteMBps = round(netWrite, 4);
+  trace.netReadMBps = round(netRead, 4);
 
   const duplexMode = input.duplexMode ?? 'full';
   trace.duplexMode = duplexMode;
@@ -184,7 +190,7 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     cacheableRetentionGB,
     ramGb,
   } = effectiveDiskIO(input, writesMB, rf, defaults);
-  trace.diskReadWriteMBps = diskIO;
+  trace.diskReadWriteMBps = round(diskIO, 4);
   trace.diskIOBoostFromRam = round(diskIOBoostFromRam, 4);
   trace.ramPerBrokerGB = ramGb;
   trace.cacheableRetentionGB = round(cacheableRetentionGB, 2);
@@ -228,8 +234,7 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   trace.brokersNeededByBottleneck = round(brokersByBottleneck, 4);
 
   let brokerNodes = ceil(brokersByBottleneck);
-  const controllerNodes = controllerNodeCount(input, brokerNodes);
-  trace.controllerNodes = controllerNodes;
+  // controllerNodes finalized after optional partition-driven broker bump
 
   const retentionEffectiveDays = effectiveRetentionDays(input);
   trace.retentionEffectiveDays = retentionEffectiveDays;
@@ -273,6 +278,9 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     trace.brokersAdjustedForPartitions = brokerNodes;
   }
 
+  const controllerNodes = controllerNodeCount(input, brokerNodes);
+  trace.controllerNodes = controllerNodes;
+
   const bindingConstraint =
     diskUtilisation >= netUtilisation ? 'disk' : 'network';
   trace.bindingConstraint = bindingConstraint;
@@ -313,7 +321,7 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     diskPerController: defaults.diskPerController,
   });
 
-  const rhaf = input.includeRhaf !== false
+  const rhaf = isEnabledFlag(input.includeRhaf, true)
     ? estimateRhaf(input, { brokerNodes, writesMB, rf })
     : null;
 
@@ -432,13 +440,13 @@ function buildEconomizeSuggestions(input, ctx) {
     });
   }
 
-  if (input.includeRhaf !== false) {
+  if (isEnabledFlag(input.includeRhaf, true)) {
     tips.push({
       id: 'rhaf-optional',
       title: 'Disable RHAF add-ons you will not deploy',
       detail:
         'Apicurio, Bridge, Console, Keycloak, etc. add OpenShift pods and storage. They are not Streams broker cores, but they do consume cluster capacity. Set includeRhaf false when sizing Kafka-only.',
-      lever: 'Export JSON → includeRhaf: false (or omit RHAF section in planning)',
+      lever: 'Durability → Include RHAF complementary components',
     });
   }
 
@@ -447,8 +455,8 @@ function buildEconomizeSuggestions(input, ctx) {
       id: 'dr-mm2',
       title: 'MirrorMaker 2 only when DR is real',
       detail:
-        'includeDr sizes MirrorMaker 2 workers. Leave it off unless you need cross-cluster replication; DR doubles platform footprint.',
-      lever: 'Scenario JSON → includeDr: false',
+        'includeDr sizes MirrorMaker 2 workers for cross-cluster replication. Leave it off unless DR is in scope; MM2 adds Connect workers and network load, not a full second Kafka cluster by itself.',
+      lever: 'Durability → Include DR (MirrorMaker 2)',
     });
   }
 
@@ -582,10 +590,7 @@ function buildPlatformResult(platform, spec) {
 
 function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
   const drEnabled = input.includeDr === true;
-  return {
-    disclaimer:
-      'Orientative sizing for RHAF components.',
-    components: [
+  const components = [
       {
         name: 'Apicurio Registry',
         role: 'Schema registry',
@@ -599,19 +604,8 @@ function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
         docs: 'https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/using_the_streams_for_apache_kafka_http_bridge/',
       },
       {
-        name: 'MirrorMaker 2',
-        role: 'DR / cluster replication',
-        estimate: {
-          instances: drEnabled ? 2 : 0,
-          vcpuEach: 2,
-          memoryGiEach: 4,
-          note: 'Size connectors per replicated topic throughput.',
-        },
-        docs: 'https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/disaster_recovery_using_mirrormaker_2/',
-      },
-      {
         name: 'Cruise Control',
-        role: 'Rebalancing',
+        role: 'Rebalancing (orientative add-on footprint; also listed as recommended operator)',
         estimate: { instances: 1, vcpuEach: 1, memoryGiEach: 2 },
         docs: 'https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/deploying_and_managing_streams_for_apache_kafka_on_openshift/',
       },
@@ -627,12 +621,29 @@ function estimateRhaf(input, { brokerNodes, writesMB, rf }) {
         estimate: { instances: 2, vcpuEach: 2, memoryGiEach: 4 },
         docs: 'https://docs.redhat.com/en/documentation/red_hat_build_of_keycloak/',
       },
-    ],
+  ];
+  if (drEnabled) {
+    components.splice(2, 0, {
+      name: 'MirrorMaker 2',
+      role: 'DR / cluster replication',
+      estimate: {
+        instances: 2,
+        vcpuEach: 2,
+        memoryGiEach: 4,
+        note: 'Size connectors per replicated topic throughput.',
+      },
+      docs: 'https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/disaster_recovery_using_mirrormaker_2/',
+    });
+  }
+  return {
+    disclaimer:
+      'Orientative sizing for RHAF complementary components (not Streams broker subscription cores).',
+    components,
     kafkaExporter: {
       enabled: true,
       vcpu: 0.5,
       memoryGi: 0.5,
-      note: 'Deployed with Kafka CR; monitor consumer lag.',
+      note: 'Deployed with Kafka CR; monitor consumer lag. Not included in RHAF subtotal above.',
     },
     referenceThroughputMBps: round(writesMB * rf, 2),
     referenceBrokerCount: brokerNodes,

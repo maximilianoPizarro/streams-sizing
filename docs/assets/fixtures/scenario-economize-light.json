@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "exportedAt": "2026-07-11T17:28:01.703Z",
+  "exportedAt": "2026-07-11T17:46:09.137Z",
   "name": "economize-light",
   "input": {
     "platform": "openshift",
@@ -33,7 +33,7 @@
     "quarkusRuntimes": 0
   },
   "result": {
-    "engineVersion": "1.1.0",
+    "engineVersion": "1.1.1",
     "platform": "openshift",
     "ingressMBps": 11.2,
     "dailyDiskUsageGB": 2904,
@@ -163,10 +163,10 @@
       "projectionYears": 0,
       "annualGrowthRatePercent": 0,
       "writesMBps": 11.2,
-      "netWriteMBps": 33.599999999999994,
-      "netReadMBps": 156.79999999999998,
+      "netWriteMBps": 33.6,
+      "netReadMBps": 156.8,
       "duplexMode": "full",
-      "diskReadWriteMBps": 33.599999999999994,
+      "diskReadWriteMBps": 33.6,
       "diskIOBoostFromRam": 0,
       "ramPerBrokerGB": 32,
       "cacheableRetentionGB": 16,
@@ -181,7 +181,6 @@
       "amplificationFactor": 2.4615,
       "brokersNeededRaw": 0.200369,
       "brokersNeededByBottleneck": 4,
-      "controllerNodes": 3,
       "retentionEffectiveDays": 3,
       "extendedRetentionPercent": 0,
       "dailyDiskUsageGB": 2904,
@@ -191,6 +190,7 @@
       "producersNeeded": 6,
       "consumersNeeded": 6,
       "partitionsPerBroker": 4.5,
+      "controllerNodes": 3,
       "bindingConstraint": "network"
     }
   }

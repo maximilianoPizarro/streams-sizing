@@ -447,9 +447,9 @@ body {
   transition: background 0.35s ease, box-shadow 0.35s ease;
 }
 
-.streams-results-section.is-recalc-focus .streams-results-table--breakdown {
-  outline: 2px solid #ee0000;
-  outline-offset: 2px;
+.streams-arch-diagram {
+  max-height: 28rem;
+  white-space: pre;
 }
 
 .streams-disclaimer__title {

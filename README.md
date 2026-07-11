@@ -15,6 +15,8 @@ See [Usage walkthrough](docs/usage-walkthrough.md) for a step-by-step example wi
 - RHAF add-on estimates (Registry, Bridge, MirrorMaker 2, Console, Keycloak)
 - Export/import scenarios (JSON)
 - Verifiable calculation trace on every result
+- Economize suggestions + optional RHAF / MirrorMaker 2 toggles
+- Architecture Mermaid diagrams from scenario JSON (`engine/architecture-diagram.mjs`)
 
 ## Analytical model
 
@@ -26,10 +28,10 @@ Legacy Spring Boot + ZooKeeper UI: branch [`legacy/spring-boot`](https://github.
 
 ```bash
 npm test
-node scripts/sync-engine.mjs   # copy engine → docs/assets/js/
+node scripts/sync-engine.mjs   # copy engine + architecture-diagram + fixtures → docs/assets/
 ```
 
-Golden fixtures: `docs/fixtures/fixture-light.json`, `docs/fixtures/fixture-heavy.json` (anonymized workloads).
+Golden fixtures: `docs/fixtures/fixture-light.json`, `fixture-economize-light.json`, `fixture-heavy.json`, `fixture-example-aggregate.json`.
 
 ## Local preview (Jekyll)
 
