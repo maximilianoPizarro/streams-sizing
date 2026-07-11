@@ -4,6 +4,8 @@ Capacity planning calculator for **Red Hat Streams for Apache Kafka** on OpenShi
 
 Live site (GitHub Pages): `https://maximilianopizarro.github.io/streams-sizing/`
 
+See [Usage walkthrough](docs/usage-walkthrough.md) for a step-by-step example with screenshots (anonymized high-throughput workload).
+
 ## Features
 
 - Constraint-based broker sizing (network, disk, replication, safety factor)
