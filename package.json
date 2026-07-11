@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test tests/*.mjs",
     "sync-engine": "node scripts/sync-engine.mjs",
-    "generate-favicon": "node scripts/generate-favicon.mjs"
+    "generate-favicon": "node scripts/generate-favicon.mjs",
+    "generate-og": "node scripts/generate-og-preview.mjs"
   },
   "license": "Apache-2.0",
   "devDependencies": {

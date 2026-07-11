@@ -2,6 +2,8 @@
 layout: default
 title: Calculator
 calculator: true
+og_title: "Streams for Apache Kafka — Capacity Planning Calculator"
+og_description: "Constraint-based sizing tool for Red Hat Streams for Apache Kafka on OpenShift or RHEL (KRaft)."
 ---
 
 <div class="streams-hero">

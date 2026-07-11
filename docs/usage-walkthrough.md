@@ -1,6 +1,8 @@
 ---
 layout: doc
 title: Usage walkthrough
+og_title: "Usage walkthrough | streams-sizing"
+og_description: "Step-by-step walkthrough of the streams-sizing calculator with an anonymized high-throughput Kafka workload."
 ---
 
 # Usage walkthrough

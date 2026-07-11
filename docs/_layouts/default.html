@@ -3,16 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% assign og_title = page.og_title | default: page.title | append: ' | streams-sizing' %}
+  {% if page.calculator %}
+    {% assign og_title = page.og_title | default: 'Streams for Apache Kafka — Capacity Planning Calculator' %}
+  {% endif %}
+  {% assign og_description = page.og_description | default: site.description %}
+  {% assign og_image = site.url | append: site.baseurl | append: '/assets/brand/og-preview.png' %}
+  {% assign og_url = page.url | absolute_url %}
   <title>{% if page.title %}{{ page.title }} | {% endif %}streams-sizing</title>
-  <meta name="description" content="{{ site.description }}">
-  <meta property="og:title" content="{% if page.title %}{{ page.title }} | {% endif %}streams-sizing">
-  <meta property="og:description" content="{{ site.description }}">
+  <meta name="description" content="{{ og_description }}">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:image" content="{{ og_image }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:url" content="{{ og_url }}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="{{ '/assets/brand/og-streams-sizing.png' | absolute_url }}">
+  <meta property="og:site_name" content="streams-sizing">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{% if page.title %}{{ page.title }} | {% endif %}streams-sizing">
-  <meta name="twitter:description" content="{{ site.description }}">
-  <meta name="twitter:image" content="{{ '/assets/brand/og-streams-sizing.png' | absolute_url }}">
+  <meta name="twitter:title" content="{{ og_title }}">
+  <meta name="twitter:description" content="{{ og_description }}">
+  <meta name="twitter:image" content="{{ og_image }}">
   <link rel="icon" href="{{ '/assets/brand/favicon.svg' | relative_url }}?v=2" type="image/svg+xml">
   <link rel="icon" href="{{ '/assets/brand/favicon-32.png' | relative_url }}?v=2" sizes="32x32" type="image/png">
   <link rel="icon" href="{{ '/assets/brand/favicon-16.png' | relative_url }}?v=2" sizes="16x16" type="image/png">

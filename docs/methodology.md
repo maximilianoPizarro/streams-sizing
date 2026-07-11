@@ -1,6 +1,8 @@
 ---
 layout: doc
 title: Methodology
+og_title: "Methodology | streams-sizing"
+og_description: "How the streams-sizing analytical model sizes Red Hat Streams for Apache Kafka brokers, controllers, disk, and subscription cores."
 ---
 
 # Sizing methodology

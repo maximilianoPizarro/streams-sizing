@@ -1,6 +1,8 @@
 ---
 layout: doc
 title: Verification
+og_title: "Verification | streams-sizing"
+og_description: "Golden fixtures, JSON traces, and tests that verify the streams-sizing calculator against anonymized workloads."
 ---
 
 # Verification
