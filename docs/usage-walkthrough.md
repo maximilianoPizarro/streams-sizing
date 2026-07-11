@@ -33,25 +33,25 @@ Select **Red Hat OpenShift** for Strimzi `KafkaNodePool`, PVCs, and operator-bas
 
 ## Step 2 — Workload
 
-Enter peak ingress and infrastructure limits. At 61,035 msg/s × 8 KiB the engine computes **~500 MB/s** ingress. Each field includes guidance on what it measures.
+Enter peak ingress and infrastructure limits. At 61,035 msg/s × 8 KiB the engine computes **~500 MB/s** ingress. Adjust **max utilisation**, **safety factor**, and **duplex mode** to match your network assumptions; Results show the combined **amplification** factor.
 
 ![Step 2 — Workload]({{ '/assets/screenshots/walkthrough/step-02-workload.png' | relative_url }})
 
 ## Step 3 — Durability & storage
 
-Set retention (72 h), controller quorum tolerance, and subscription core policy for licensing estimates.
+Set retention (72 h), **disk capacity headroom** (default 1.25×) and **segment overhead** (default 5%), controller quorum tolerance, and subscription core policy for licensing estimates.
 
 ![Step 3 — Durability & storage]({{ '/assets/screenshots/walkthrough/step-03-durability.png' | relative_url }})
 
 ## Step 4 — Consumers, partitions & client access
 
-Define consumer groups and optional partition throughputs. Choose the **client access pattern** when the architecture uses **Apache Camel** integrations and/or **direct Kafka clients outside OpenShift** (Quarkus runtimes).
+Define consumer groups and optional partition throughputs. Choose the **client access pattern** when the architecture uses **Apache Camel** integrations and/or **direct Kafka clients outside OpenShift** (Quarkus runtimes). Optional **RAM**, **compression**, and **TLS** fields feed the experimental compute CPU estimate.
 
 ![Step 4 — Consumers & partitions]({{ '/assets/screenshots/walkthrough/step-04-consumers.png' | relative_url }})
 
 ## Step 5 — Results
 
-Review **Total cluster** (nodes, vCPU, memory, disk, subscription cores), then the role breakdown, RHAF add-ons, optional Camel/Quarkus integrations, and the verification trace.
+Review **Total cluster** (nodes, vCPU, memory, disk, subscription cores), then the role breakdown, RHAF add-ons, optional Camel/Quarkus integrations, and the verification trace (including `amplificationFactor`, disk headroom, and KRaft metadata).
 
 ![Step 5 — Results]({{ '/assets/screenshots/walkthrough/step-05-results.png' | relative_url }})
 
