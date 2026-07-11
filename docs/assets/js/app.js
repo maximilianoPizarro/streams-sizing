@@ -225,18 +225,25 @@ function renderResultsStep() {
   if (!r) return '<p>Calculating…</p>';
 
   const pd = r.platformDetails;
+  const t = r.clusterTotals;
   const poolRows = pd.kafkaNodePools
     ? pd.kafkaNodePools.map((p) => `
         <tr><th>${p.role} nodes</th><td>${p.nodes} × ${p.resources.cpuRequest} CPU, ${p.resources.memoryRequestGi} Gi RAM, ${p.resources.pvcSizeGi} Gi disk</td></tr>`).join('')
     : `
         <tr><th>Broker hosts</th><td>${pd.topology.brokerHosts}</td></tr>
-        <tr><th>Controller hosts</th><td>${pd.topology.controllerHosts}</td></tr>`;
+        <tr><th>Controller hosts</th><td>${pd.topology.controllerHosts}</td></tr>
+        <tr><th>Resources per broker</th><td>${pd.resourcesPerBroker.vcpus} vCPU, ${pd.resourcesPerBroker.memoryGi} Gi RAM, ${formatGb(pd.resourcesPerBroker.diskGi)} disk</td></tr>
+        <tr><th>Resources per controller</th><td>${pd.resourcesPerController.vcpus} vCPU, ${pd.resourcesPerController.memoryGi} Gi RAM, ${formatGb(pd.resourcesPerController.diskGi)} disk</td></tr>`;
 
   const rhafRows = (r.rhaf?.components ?? []).map((c) => `
     <tr>
       <th>${c.name}</th>
       <td>${c.estimate.instances} instance(s), ${c.estimate.vcpuEach} vCPU, ${c.estimate.memoryGiEach} Gi RAM — ${c.role}</td>
     </tr>`).join('');
+
+  const withRhaf = t.withRhaf
+    ? `<tr><th>Grand total with RHAF</th><td>${t.withRhaf.nodes} instances/nodes · ${t.withRhaf.vcpus} vCPU · ${t.withRhaf.memoryGi} Gi RAM</td></tr>`
+    : '';
 
   return `
     <div class="streams-results">
@@ -245,24 +252,38 @@ function renderResultsStep() {
         <code>fixture-light</code> sample — replace inputs with your workload and recalculate.
         Export JSON to keep an auditable, reproducible scenario.
       </p>
-      <h2>Sizing summary (${pd.deploymentTarget})</h2>
+
+      <h2>Total cluster</h2>
+      <table class="streams-results-table streams-results-table--total">
+        <tr><th>Nodes (brokers + controllers)</th><td><strong>${t.nodes}</strong> (${t.brokerNodes} brokers + ${t.controllerNodes} controllers)</td></tr>
+        <tr><th>Total vCPU</th><td><strong>${t.vcpus}</strong></td></tr>
+        <tr><th>Total memory</th><td><strong>${t.memoryGi} Gi</strong></td></tr>
+        <tr><th>Total provisioned disk</th><td><strong>${formatGb(t.diskGB)}</strong> (broker PVCs/hosts + controller disks)</td></tr>
+        <tr><th>Kafka data volume</th><td>${formatGb(t.kafkaDataDiskGB)} across cluster (RF × retention; before per-broker 10% overhead)</td></tr>
+        <tr><th>Subscription cores</th><td><strong>${t.subscriptionCoresReported}</strong> (${r.subscriptionPolicy})</td></tr>
+        <tr><th>Ingress / binding</th><td>${r.ingressMBps} MB/s · ${r.bindingConstraint}</td></tr>
+        ${withRhaf}
+      </table>
+
+      <h2>Breakdown (${pd.deploymentTarget})</h2>
       <table class="streams-results-table">
-        <tr><th>Ingress throughput</th><td>${r.ingressMBps} MB/s</td></tr>
-        <tr><th>Binding constraint</th><td>${r.bindingConstraint}</td></tr>
-        <tr><th>Broker nodes</th><td>${r.brokerNodes}</td></tr>
-        <tr><th>Controller nodes (KRaft)</th><td>${r.controllerNodes}</td></tr>
+        <tr><th>Broker nodes</th><td>${r.brokerNodes} × ${r.vcpusPerBroker} vCPU, ${r.memPerBrokerGB} Gi RAM, ${formatGb(r.diskPerBrokerGB)} disk</td></tr>
+        <tr><th>Controller nodes (KRaft)</th><td>${r.controllerNodes} × ${r.vcpusPerController} vCPU, ${r.memPerControllerGB} Gi RAM, ${formatGb(r.diskPerControllerGB)} disk</td></tr>
         <tr><th>Daily storage (RF included)</th><td>${formatGb(r.dailyDiskUsageGB)}</td></tr>
         <tr><th>Total storage (effective retention)</th><td>${formatGb(r.totalDiskStorageGB)} (${r.retentionEffectiveDays} days effective)</td></tr>
         <tr><th>Disk per broker</th><td>${formatGb(r.diskPerBrokerGB)}</td></tr>
-        <tr><th>Subscription cores (${r.subscriptionPolicy})</th><td>${r.subscriptionCoresReported}</td></tr>
         <tr><th>Core pairs (alternate)</th><td>${r.subscriptionCorePairs}</td></tr>
+        <tr><th>Failover-excluded cores</th><td>${r.subscriptionFailoverExcluded}</td></tr>
         <tr><th>Partitions (if estimated)</th><td>${r.partitions || '—'}</td></tr>
         ${poolRows}
       </table>
 
       <h2>RHAF complementary components</h2>
       <p><small>${r.rhaf?.disclaimer ?? ''}</small></p>
-      <table class="streams-results-table">${rhafRows}</table>
+      <table class="streams-results-table">
+        ${rhafRows}
+        ${r.rhaf?.totals ? `<tr><th>RHAF subtotal</th><td>${r.rhaf.totals.instances} instances · ${r.rhaf.totals.vcpus} vCPU · ${r.rhaf.totals.memoryGi} Gi RAM</td></tr>` : ''}
+      </table>
 
       <h2>Verification trace</h2>
       <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>

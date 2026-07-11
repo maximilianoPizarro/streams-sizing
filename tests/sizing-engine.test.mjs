@@ -123,3 +123,33 @@ test('RHAF estimates included', () => {
   assert.ok(result.rhaf);
   assert.ok(result.rhaf.components.length >= 5);
 });
+
+test('clusterTotals aggregates brokers and controllers', () => {
+  const fx = loadFixture('fixture-example-aggregate');
+  const result = sizeKafkaCluster(fx.input);
+  const t = result.clusterTotals;
+  assert.equal(t.brokerNodes, result.brokerNodes);
+  assert.equal(t.controllerNodes, result.controllerNodes);
+  assert.equal(t.nodes, result.brokerNodes + result.controllerNodes);
+  assert.equal(
+    t.vcpus,
+    result.brokerNodes * result.vcpusPerBroker +
+      result.controllerNodes * result.vcpusPerController
+  );
+  assert.equal(
+    t.memoryGi,
+    result.brokerNodes * result.memPerBrokerGB +
+      result.controllerNodes * result.memPerControllerGB
+  );
+  assert.equal(
+    t.diskGB,
+    result.brokerNodes * result.diskPerBrokerGB +
+      result.controllerNodes * result.diskPerControllerGB
+  );
+  assert.equal(t.kafkaDataDiskGB, result.totalDiskStorageGB);
+  assert.ok(result.rhaf.totals.instances > 0);
+  assert.equal(
+    t.withRhaf.vcpus,
+    t.vcpus + result.rhaf.totals.vcpus
+  );
+});

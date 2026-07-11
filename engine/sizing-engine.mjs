@@ -169,6 +169,21 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   const subscriptionFailoverExcluded = (brokerNodes - 1) * vcpusPerBroker;
   const policy = input.subscriptionPolicy ?? 'corePairs';
 
+  const clusterTotals = {
+    nodes: brokerNodes + controllerNodes,
+    brokerNodes,
+    controllerNodes,
+    vcpus: brokerNodes * vcpusPerBroker + controllerNodes * defaults.vcpusPerController,
+    memoryGi: brokerNodes * defaults.memPerBroker + controllerNodes * defaults.memPerController,
+    diskGB:
+      brokerNodes * diskPerBrokerGB + controllerNodes * defaults.diskPerController,
+    kafkaDataDiskGB: totalDiskStorageGB,
+    subscriptionCoresReported:
+      policy === 'failoverExcluded'
+        ? subscriptionFailoverExcluded
+        : subscriptionCorePairs,
+  };
+
   const platformResult = buildPlatformResult(input.platform, {
     brokerNodes,
     controllerNodes,
@@ -183,6 +198,26 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
   const rhaf = input.includeRhaf !== false
     ? estimateRhaf(input, { brokerNodes, writesMB, rf })
     : null;
+
+  if (rhaf) {
+    const comps = rhaf.components ?? [];
+    rhaf.totals = {
+      instances: comps.reduce((s, c) => s + (c.estimate.instances ?? 0), 0),
+      vcpus: comps.reduce(
+        (s, c) => s + (c.estimate.instances ?? 0) * (c.estimate.vcpuEach ?? 0),
+        0
+      ),
+      memoryGi: comps.reduce(
+        (s, c) => s + (c.estimate.instances ?? 0) * (c.estimate.memoryGiEach ?? 0),
+        0
+      ),
+    };
+    clusterTotals.withRhaf = {
+      vcpus: clusterTotals.vcpus + rhaf.totals.vcpus,
+      memoryGi: clusterTotals.memoryGi + rhaf.totals.memoryGi,
+      nodes: clusterTotals.nodes + rhaf.totals.instances,
+    };
+  }
 
   return {
     engineVersion: ENGINE_VERSION,
@@ -200,16 +235,14 @@ export function sizeKafkaCluster(input, defaults = DEFAULTS) {
     diskPerControllerGB: defaults.diskPerController,
     subscriptionCorePairs,
     subscriptionFailoverExcluded,
-    subscriptionCoresReported:
-      policy === 'failoverExcluded'
-        ? subscriptionFailoverExcluded
-        : subscriptionCorePairs,
+    subscriptionCoresReported: clusterTotals.subscriptionCoresReported,
     subscriptionPolicy: policy,
     partitions,
     topicThroughputMBps: topicTp,
     bindingConstraint,
     retentionEffectiveDays,
     jvmHeapRecommendationGb: `${defaults.jvmHeapGbMin}-${defaults.jvmHeapGbMax}`,
+    clusterTotals,
     platformDetails: platformResult,
     rhaf,
     trace,

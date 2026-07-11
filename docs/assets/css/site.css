@@ -307,6 +307,15 @@ body {
   color: var(--streams-muted);
 }
 
+.streams-results-table--total th {
+  background: #f5f5f5;
+  width: 42%;
+}
+
+.streams-results-table--total td strong {
+  font-size: 1.0625rem;
+}
+
 .streams-results h2 {
   margin: 1.5rem 0 0.75rem;
   font-size: 1.125rem;
