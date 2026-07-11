@@ -3,9 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  {% assign og_title = page.og_title | default: page.title | append: ' | streams-sizing' %}
-  {% if page.calculator %}
-    {% assign og_title = page.og_title | default: 'Streams for Apache Kafka — Capacity Planning Calculator' %}
+  {% if page.og_title %}
+    {% assign og_title = page.og_title %}
+  {% elsif page.calculator %}
+    {% assign og_title = 'Streams for Apache Kafka — Capacity Planning Calculator' %}
+  {% elsif page.title %}
+    {% assign og_title = page.title | append: ' | streams-sizing' %}
+  {% else %}
+    {% assign og_title = 'streams-sizing' %}
   {% endif %}
   {% assign og_description = page.og_description | default: site.description %}
   {% assign og_image = site.url | append: site.baseurl | append: '/assets/brand/og-preview.png' %}
