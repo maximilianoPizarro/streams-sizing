@@ -1,9 +1,7 @@
 ---
-layout: default
+layout: doc
 title: Usage walkthrough
 ---
-
-<div class="streams-doc">
 
 # Usage walkthrough
 
@@ -57,5 +55,3 @@ Review broker/controller counts, storage, subscription cores, RHAF add-ons, and 
 ![Step 5 — Results]({{ '/assets/screenshots/walkthrough/step-05-results.png' | relative_url }})
 
 Compare the trace with [Verification]({{ '/verification.html' | relative_url }}) and export JSON for audit.
-
-</div>

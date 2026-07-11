@@ -398,6 +398,50 @@ body {
   margin-top: 0;
 }
 
+.streams-doc h2 {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.25rem;
+}
+
+.streams-doc h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.0625rem;
+}
+
+.streams-doc p,
+.streams-doc ul,
+.streams-doc ol {
+  margin: 0 0 1rem;
+  line-height: 1.55;
+}
+
+.streams-doc li + li {
+  margin-top: 0.35rem;
+}
+
+.streams-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin: 0 0 1.25rem;
+}
+
+.streams-doc th,
+.streams-doc td {
+  border: 1px solid var(--streams-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.streams-doc th {
+  background: #f0f0f0;
+}
+
+.streams-doc code {
+  font-size: 0.875em;
+}
+
 .streams-doc pre {
   background: #151515;
   color: #f0f0f0;

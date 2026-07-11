@@ -1,9 +1,7 @@
 ---
-layout: default
+layout: doc
 title: Methodology
 ---
-
-<div class="streams-doc">
 
 # Sizing methodology
 
@@ -99,5 +97,3 @@ See product documentation for authoritative sizing.
 - [Minimum sizing (OpenShift dev)](https://access.redhat.com/solutions/4205851)
 - [Kafka configuration tuning](https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.0/html-single/kafka_configuration_tuning/index)
 - [Strimzi deploying guide](https://strimzi.io/docs/operators/latest/deploying.html)
-
-</div>

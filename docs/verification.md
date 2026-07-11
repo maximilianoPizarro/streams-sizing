@@ -1,9 +1,7 @@
 ---
-layout: default
+layout: doc
 title: Verification
 ---
-
-<div class="streams-doc">
 
 # Verification
 
@@ -57,5 +55,3 @@ On the Results step, export a scenario JSON. Re-import to reproduce the same inp
 ## Legacy Spring Boot
 
 The original calculator logic lives on branch `legacy/spring-boot` (Andy Yuen model + ZooKeeper outputs). Compare traces when migrating from [kafkasizing.azurewebsites.net](https://kafkasizing.azurewebsites.net/size).
-
-</div>
