@@ -20,6 +20,7 @@ Step-by-step example using an **anonymized high-throughput production workload**
 | Retention | 3 days (72 h) |
 | Consumer groups | 3 |
 | Subscription policy | Failover excluded |
+| Client access pattern | In-cluster only (optional Camel / external Quarkus) |
 
 Load this scenario from the Results step: **Load fixture: aggregate example**, or open  
 `/streams-sizing/?fixture=fixture-example-aggregate&step=4`
@@ -32,7 +33,7 @@ Select **Red Hat OpenShift** for Strimzi `KafkaNodePool`, PVCs, and operator-bas
 
 ## Step 2 — Workload
 
-Enter peak ingress and infrastructure limits. At 61,035 msg/s × 8 KiB the engine computes **~500 MB/s** ingress.
+Enter peak ingress and infrastructure limits. At 61,035 msg/s × 8 KiB the engine computes **~500 MB/s** ingress. Each field includes guidance on what it measures.
 
 ![Step 2 — Workload]({{ '/assets/screenshots/walkthrough/step-02-workload.png' | relative_url }})
 
@@ -42,16 +43,18 @@ Set retention (72 h), controller quorum tolerance, and subscription core policy 
 
 ![Step 3 — Durability & storage]({{ '/assets/screenshots/walkthrough/step-03-durability.png' | relative_url }})
 
-## Step 4 — Consumers & partitions
+## Step 4 — Consumers, partitions & client access
 
-Define consumer groups and optional partition throughputs for topic-level estimates.
+Define consumer groups and optional partition throughputs. Choose the **client access pattern** when the architecture uses **Apache Camel** integrations and/or **direct Kafka clients outside OpenShift** (Quarkus runtimes).
 
 ![Step 4 — Consumers & partitions]({{ '/assets/screenshots/walkthrough/step-04-consumers.png' | relative_url }})
 
 ## Step 5 — Results
 
-Review broker/controller counts, storage, subscription cores, RHAF add-ons, and the verification trace.
+Review **Total cluster** (nodes, vCPU, memory, disk, subscription cores), then the role breakdown, RHAF add-ons, optional Camel/Quarkus integrations, and the verification trace.
 
 ![Step 5 — Results]({{ '/assets/screenshots/walkthrough/step-05-results.png' | relative_url }})
+
+Expected for this fixture: **10 brokers + 3 controllers**, ~**388.8 TB** Kafka data, **90** subscription cores (failover excluded).
 
 Compare the trace with [Verification]({{ '/verification.html' | relative_url }}) and export JSON for audit.
