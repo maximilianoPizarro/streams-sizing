@@ -421,6 +421,10 @@ body {
   margin: 0.75rem 0 0;
 }
 
+.streams-footer__credit {
+  margin: 0.75rem 0 0;
+}
+
 .streams-doc h1 {
   margin-top: 0;
 }
