@@ -359,7 +359,14 @@ body {
   border: 1px solid #92c5f9;
   border-left: 4px solid #0066cc;
   padding: 1rem 1.125rem;
-  margin-bottom: 0;
+  margin: 0 0 1.5rem;
+}
+
+.streams-step-intro {
+  margin: 0 0 1.25rem;
+  color: #151515;
+  line-height: 1.5;
+  max-width: 52rem;
 }
 
 .streams-disclaimer__title {

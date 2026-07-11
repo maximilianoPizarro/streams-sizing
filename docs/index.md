@@ -13,6 +13,16 @@ calculator: true
   </p>
 </div>
 
+<div class="streams-disclaimer">
+  <p class="streams-disclaimer__title">Start from the repo example, then replace with your data</p>
+  <p class="streams-disclaimer__text">
+    The form is pre-filled with the anonymized <strong>fixture-light</strong> example from this repository
+    (<code>docs/fixtures/fixture-light.json</code>). Leaving the defaults reproduces that sample sizing.
+    Replace every value with your peak workload, retention, network, disk, and consumer topology before using the result for planning.
+    You can also load other fixtures or import/export a scenario JSON from the Results step.
+  </p>
+</div>
+
 <div id="calculator-app" class="streams-calculator" aria-live="polite">
   <div class="streams-wizard">
     <ul class="streams-wizard__nav" id="wizard-nav"></ul>
@@ -22,13 +32,4 @@ calculator: true
       <button type="button" class="streams-btn streams-btn--primary" id="btn-next">Next</button>
     </footer>
   </div>
-</div>
-
-<div class="streams-disclaimer">
-  <p class="streams-disclaimer__title">Estimate only</p>
-  <p class="streams-disclaimer__text">
-    The most accurate sizing method is simulating target load with
-    <code>kafka-producer-perf-test</code> and <code>kafka-consumer-perf-test</code>.
-    See <a href="{{ '/verification.html' | relative_url }}">Verification</a>.
-  </p>
 </div>

@@ -13,6 +13,7 @@ const STEPS = [
   { id: 'results', title: 'Results' },
 ];
 
+/** Defaults match docs/fixtures/fixture-light.json (repo sample). */
 const state = {
   step: 0,
   input: {
@@ -27,13 +28,13 @@ const state = {
     laggingConsumers: 0,
     retentionDays: 7,
     extendedRetentionDays: 45,
-    extendedRetentionPercent: 0,
-    annualGrowthRatePercent: 0,
+    extendedRetentionPercent: 20,
+    annualGrowthRatePercent: 8,
     projectionYears: 0,
     controllerFailuresTolerated: 1,
-    topicThroughputMBps: 0,
-    producerThroughputMBps: 0,
-    consumerThroughputMBps: 0,
+    topicThroughputMBps: 11,
+    producerThroughputMBps: 2,
+    consumerThroughputMBps: 2,
     includeRhaf: true,
     subscriptionPolicy: 'corePairs',
   },
@@ -79,15 +80,19 @@ function field(name, label, type = 'number', opts = {}) {
 function renderPlatformStep() {
   return `
     <h2>Deployment platform</h2>
-    <p>Select where Streams for Apache Kafka will run. The analytical model is the same; outputs differ (NodePools vs hosts).</p>
+    <p class="streams-step-intro">
+      Choose where Streams for Apache Kafka will run. The analytical formulas are the same;
+      only the output shape changes (OpenShift <code>KafkaNodePool</code> / PVCs vs RHEL host counts).
+      Defaults below follow the repository sample fixture — change them to your environment.
+    </p>
     <div class="streams-platform-cards" role="radiogroup" aria-label="Platform">
       ${['openshift', 'rhel'].map((p) => `
         <button type="button" class="streams-platform-card ${state.input.platform === p ? 'is-selected' : ''}"
           data-platform="${p}" aria-pressed="${state.input.platform === p}">
           <h3>${p === 'openshift' ? 'Red Hat OpenShift' : 'Red Hat Enterprise Linux'}</h3>
           <p>${p === 'openshift'
-            ? 'Strimzi operators, KafkaNodePool, PVCs, dedicated workers.'
-            : 'KRaft on RHEL hosts, local block storage, no Kubernetes.'}</p>
+            ? 'Cluster Operator, separate broker/controller NodePools, block PVCs (ODF/LSO).'
+            : 'Dedicated RHEL hosts for brokers and KRaft controllers, local block disks.'}</p>
         </button>`).join('')}
     </div>`;
 }
@@ -95,33 +100,86 @@ function renderPlatformStep() {
 function renderWorkloadStep() {
   return `
     <h2>Workload</h2>
+    <p class="streams-step-intro">
+      These values drive ingress throughput (MB/s), network and disk pressure, and growth projections.
+      Use <strong>peak sustained</strong> rates, not averages, unless you intentionally size for average load.
+    </p>
     <div class="streams-field-grid">
-      ${field('messageRate', 'Target message rate (msgs/s)', 'number', { min: 1, help: 'Ingress rate the cluster must handle.' })}
-      ${field('messageSizeBytes', 'Average message size (bytes)', 'number', { min: 1, help: 'Use 8000 for 8 KB average (decimal KB).' })}
-      ${field('replicas', 'Replication factor', 'number', { min: 1, max: 7 })}
-      ${field('netSpeedGbps', 'Network adapter speed (Gbps)', 'number', { min: 0.1, step: 0.1, help: 'Full-duplex assumed.' })}
-      ${field('diskThroughputMBps', 'Max disk throughput (MB/s)', 'number', { min: 1, help: '~125 HDD, 400+ SSD/NVMe.' })}
-      ${field('maxUtil', 'Max utilisation (0.01–1.00)', 'number', { min: 0.01, max: 1, step: 0.01 })}
-      ${field('annualGrowthRatePercent', 'Annual growth rate (%)', 'number', { min: 0, step: 0.1 })}
-      ${field('projectionYears', 'Projection horizon (years)', 'number', { min: 0, max: 10, help: '0 = current year; 3 = year-3 projection.' })}
+      ${field('messageRate', 'Target message rate (msgs/s)', 'number', {
+        min: 1,
+        help: 'How many messages per second the cluster must accept at the sizing point (usually peak). Ingress MB/s = rate × size / 1,000,000.',
+      })}
+      ${field('messageSizeBytes', 'Average message size (bytes)', 'number', {
+        min: 1,
+        help: 'Mean payload size including typical headers. Example: 8000 ≈ 8 KB (decimal). Larger messages raise MB/s and storage faster than rate alone.',
+      })}
+      ${field('replicas', 'Replication factor (RF)', 'number', {
+        min: 1,
+        max: 7,
+        help: 'Copies of each partition (leaders + followers). Production default is usually 3. Multiplies write traffic and disk usage by RF.',
+      })}
+      ${field('netSpeedGbps', 'Network adapter speed (Gbps)', 'number', {
+        min: 0.1,
+        step: 0.1,
+        help: 'NIC speed available to each broker (full-duplex). Used to compute network capacity: (Gbps / 8) × 1000 MB/s.',
+      })}
+      ${field('diskThroughputMBps', 'Max disk throughput (MB/s)', 'number', {
+        min: 1,
+        help: 'Sustainable sequential read/write per broker disk path. Typical: ~125 HDD, ~400+ SSD/NVMe. Underestimating this under-sizes brokers.',
+      })}
+      ${field('maxUtil', 'Max utilisation target (0.01–1.00)', 'number', {
+        min: 0.01,
+        max: 1,
+        step: 0.01,
+        help: 'Headroom target for the binding constraint (network or disk). 0.65 means size so peak utilisation stays near 65% before the safety factor.',
+      })}
+      ${field('annualGrowthRatePercent', 'Annual growth rate (%)', 'number', {
+        min: 0,
+        step: 0.1,
+        help: 'Compound annual growth applied to message rate when Projection horizon &gt; 0. Example: 8 with 3 years → rate × 1.08³.',
+      })}
+      ${field('projectionYears', 'Projection horizon (years)', 'number', {
+        min: 0,
+        max: 10,
+        help: '0 = size for current rate. 3 = size for year-3 projected rate using the annual growth above.',
+      })}
     </div>`;
 }
 
 function renderDurabilityStep() {
   return `
     <h2>Durability & storage</h2>
+    <p class="streams-step-intro">
+      Retention drives total disk. Mixed retention models a share of volume kept longer than the standard policy.
+      Controller count is independent of broker count (KRaft quorum).
+    </p>
     <div class="streams-field-grid">
-      ${field('retentionDays', 'Standard retention (days)', 'number', { min: 1 })}
-      ${field('extendedRetentionDays', 'Extended retention (days)', 'number', { min: 0, help: '0 = disabled.' })}
-      ${field('extendedRetentionPercent', 'Volume on extended retention (%)', 'number', { min: 0, max: 100 })}
+      ${field('retentionDays', 'Standard retention (days)', 'number', {
+        min: 1,
+        help: 'Default topic retention in days for most of the data. Total disk ≈ daily growth × effective retention days.',
+      })}
+      ${field('extendedRetentionDays', 'Extended retention (days)', 'number', {
+        min: 0,
+        help: 'Longer retention window for a subset of topics/data (compliance, replay). Set 0 to disable mixed retention.',
+      })}
+      ${field('extendedRetentionPercent', 'Volume on extended retention (%)', 'number', {
+        min: 0,
+        max: 100,
+        help: 'Share of volume kept for the extended window. Effective days = std×(1−X) + ext×X, where X is this percent / 100.',
+      })}
       ${field('controllerFailuresTolerated', 'Controller failures tolerated', 'number', {
-        options: [[1, '1 failure → 3 controllers'], [2, '2 failures → 5 controllers']],
+        options: [
+          [1, '1 failure → 3 controllers'],
+          [2, '2 failures → 5 controllers'],
+        ],
+        help: 'KRaft quorum size. Controllers do not count toward Streams subscription cores. Clusters with &gt;50 brokers also use 5 controllers.',
       })}
       ${field('subscriptionPolicy', 'Subscription core policy', 'number', {
         options: [
           ['corePairs', 'Core pairs: (brokers × vCPU) ÷ 2'],
           ['failoverExcluded', 'Failover excluded: (brokers − 1) × vCPU'],
         ],
+        help: 'How subscription cores are reported. Core pairs is the classic pairing model; failover excluded omits one broker as spare capacity.',
       })}
     </div>`;
 }
@@ -129,12 +187,30 @@ function renderDurabilityStep() {
 function renderConsumersStep() {
   return `
     <h2>Consumers & partitions</h2>
+    <p class="streams-step-intro">
+      Consumer fan-out is often the network bottleneck. Partition fields are optional: leave at 0 to skip partition estimation.
+    </p>
     <div class="streams-field-grid">
-      ${field('consumerGroups', 'Consumer groups', 'number', { min: 0 })}
-      ${field('laggingConsumers', 'Lagging consumers', 'number', { min: 0, help: '0 = best case (page cache hits). Worst case ≈ consumerGroups + (RF − 1).' })}
-      ${field('topicThroughputMBps', 'Topic throughput (MB/s)', 'number', { min: 0, help: 'Optional; 0 skips partition estimate.' })}
-      ${field('producerThroughputMBps', 'Slowest producer (MB/s)', 'number', { min: 0 })}
-      ${field('consumerThroughputMBps', 'Slowest consumer (MB/s)', 'number', { min: 0 })}
+      ${field('consumerGroups', 'Consumer groups', 'number', {
+        min: 0,
+        help: 'Independent consumer groups reading the same topics at peak. Raises net-read: (groups + RF − 1) × writes. Use the peak concurrent group count.',
+      })}
+      ${field('laggingConsumers', 'Lagging consumers', 'number', {
+        min: 0,
+        help: 'Consumers reading older data from disk instead of page cache. Adds disk I/O: (RF + lagging) × writes. 0 = best case; worst case ≈ groups + (RF − 1).',
+      })}
+      ${field('topicThroughputMBps', 'Topic throughput (MB/s)', 'number', {
+        min: 0,
+        help: 'Optional. Aggregate throughput of the topic used for partition sizing. Set 0 to skip the partition estimate.',
+      })}
+      ${field('producerThroughputMBps', 'Slowest producer throughput (MB/s)', 'number', {
+        min: 0,
+        help: 'Optional. Throughput of the slowest producer client. Partitions ≈ ceil(topicTP / producerTP) when all three optional fields are &gt; 0.',
+      })}
+      ${field('consumerThroughputMBps', 'Slowest consumer throughput (MB/s)', 'number', {
+        min: 0,
+        help: 'Optional. Throughput of the slowest consumer. Partitions also consider ceil(topicTP / consumerTP); final partitions = max of both.',
+      })}
     </div>`;
 }
 
@@ -164,6 +240,11 @@ function renderResultsStep() {
 
   return `
     <div class="streams-results">
+      <p class="streams-step-intro">
+        Results for the inputs above. If you kept the defaults, this matches the repository
+        <code>fixture-light</code> sample — replace inputs with your workload and recalculate.
+        Export JSON to keep an auditable, reproducible scenario.
+      </p>
       <h2>Sizing summary (${pd.deploymentTarget})</h2>
       <table class="streams-results-table">
         <tr><th>Ingress throughput</th><td>${r.ingressMBps} MB/s</td></tr>
