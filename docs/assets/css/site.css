@@ -156,6 +156,10 @@ body {
   background: #fafafa;
 }
 
+.streams-wizard__step-num {
+  font-weight: 600;
+}
+
 .streams-wizard__step {
   font-size: 0.875rem;
   color: var(--streams-muted);

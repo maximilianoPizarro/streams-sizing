@@ -50,7 +50,7 @@ function renderNav() {
     let cls = 'streams-wizard__step';
     if (i === state.step) cls += ' is-current';
     else if (i < state.step) cls += ' is-complete';
-    return `<li class="${cls}" role="listitem">${i + 1}. ${s.title}</li>`;
+    return `<li class="${cls}" role="listitem"><span class="streams-wizard__step-num">${i + 1}.</span> ${s.title}</li>`;
   }).join('');
 }
 

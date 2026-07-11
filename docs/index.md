@@ -15,7 +15,7 @@ calculator: true
 
 <div id="calculator-app" class="streams-calculator" aria-live="polite">
   <div class="streams-wizard">
-    <ol class="streams-wizard__nav" id="wizard-nav" role="list"></ol>
+    <ol class="streams-wizard__nav" id="wizard-nav" role="list" style="list-style:none"></ol>
     <div class="streams-wizard__body" id="wizard-body"></div>
     <footer class="streams-wizard__footer">
       <button type="button" class="streams-btn streams-btn--secondary" id="btn-back" disabled>Back</button>
