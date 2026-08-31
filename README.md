@@ -34,6 +34,8 @@ node scripts/sync-engine.mjs   # copy engine + architecture-diagram + fixtures â
 
 Golden fixtures: `docs/fixtures/fixture-light.json`, `fixture-economize-light.json`, `fixture-heavy.json`, `fixture-example-aggregate.json`.
 
+Planning samples (msg/s TPS, 72h retention, dual-site DR): `fixture-entry-10pct-50tps.json`, `fixture-peak-500-to-3k-tps.json`. Load in the wizard via `?fixture=<name>&step=4` or the Planning package controls on Results.
+
 ## Local preview (Jekyll)
 
 ```bash
