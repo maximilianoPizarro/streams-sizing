@@ -549,7 +549,7 @@ function renderResultsStep() {
           <tr><th>Alternate policy</th><td>${subCalcAlt}</td></tr>
           <tr><th>Controllers</th><td>${t.controllerNodes} × ${r.vcpusPerController} vCPU — not counted in Streams broker subscription line</td></tr>
         </table>
-        <p class="streams-print-sheet__meta"><small>Failover excluded = omit one broker as spare capacity. Align final policy with contracts.</small></p>
+        <p class="streams-print-sheet__meta"><small>Failover excluded = omit one broker as spare capacity. Align final subscription core count with Red Hat entitlement guidance.</small></p>
       </section>`;
 
   return `
