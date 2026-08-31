@@ -60,3 +60,5 @@ Review **Total cluster** (nodes, vCPU, memory, disk, subscription cores), then t
 Expected for this fixture: **10 brokers + 3 controllers**, ~**388.8 TB** Kafka data, **90** subscription cores (failover excluded).
 
 Compare the trace with [Verification]({{ '/verification.html' | relative_url }}) and export JSON for audit.
+
+From Results you can also use **Print** to save a multi-page PDF (cover, subscription core calculation, capacity tables, architecture diagram).
