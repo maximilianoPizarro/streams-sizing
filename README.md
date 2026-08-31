@@ -13,7 +13,8 @@ See [Usage walkthrough](docs/usage-walkthrough.md) for a step-by-step example wi
 - OpenShift (`KafkaNodePool`) vs RHEL host outputs
 - Mixed retention, growth projection, optional partition estimate
 - RHAF add-on estimates (Registry, Bridge, MirrorMaker 2, Console, Keycloak)
-- Export/import scenarios (JSON)
+- Export/import scenarios (JSON), including optional planning metadata
+- Browser **Print / Save as PDF** from Results (paged sheets: cover, subscription math, tables, architecture)
 - Verifiable calculation trace on every result
 - Economize suggestions + optional RHAF / MirrorMaker 2 toggles
 - Architecture Mermaid diagrams from scenario JSON (`engine/architecture-diagram.mjs`)
