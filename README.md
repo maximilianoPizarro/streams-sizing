@@ -48,6 +48,19 @@ Or open `docs/index.md` output after `jekyll build` in `docs/_site/`.
 
 **Note:** ES modules require HTTP (GitHub Pages or `jekyll serve`), not `file://`.
 
+### Local print / PDF smoke test
+
+Without Jekyll, serve `docs/` over HTTP and open the print helper:
+
+```bash
+cd docs
+python -m http.server 8765
+# then open:
+# http://127.0.0.1:8765/local-print-preview.html?fixture=fixture-entry-10pct-50tps&step=4
+```
+
+Use the Results **Print** control (or the browser print dialog) to Save as PDF. Sheets are laid out for A4 with cover, subscription cores, capacity tables, and architecture.
+
 ## GitHub Pages
 
 1. Repository **Settings → Pages**
