@@ -4,8 +4,8 @@ import {
   importScenario,
   DEFAULTS,
   ENGINE_VERSION,
-} from './sizing-engine.mjs?v=16';
-import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=16';
+} from './sizing-engine.mjs?v=17';
+import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=17';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -510,21 +510,46 @@ function renderResultsStep() {
       </section>`;
 
   const scenarioLabel = state.loadedFixtureId ?? 'custom';
+  const subPolicy = r.subscriptionPolicy ?? 'corePairs';
+  const subCalc =
+    subPolicy === 'failoverExcluded'
+      ? `(${t.brokerNodes} brokers − 1) × ${r.vcpusPerBroker} vCPU/broker = <strong>${t.subscriptionCoresReported}</strong> cores`
+      : `(${t.brokerNodes} brokers × ${r.vcpusPerBroker} vCPU) ÷ 2 = <strong>${t.subscriptionCoresReported}</strong> cores`;
+  const subCalcAlt =
+    subPolicy === 'failoverExcluded'
+      ? `Alternate (core pairs): (${t.brokerNodes} × ${r.vcpusPerBroker}) ÷ 2 = ${r.subscriptionCorePairs}`
+      : `Alternate (failover excluded): (${t.brokerNodes} − 1) × ${r.vcpusPerBroker} = ${r.subscriptionFailoverExcluded}`;
+
   const printCover = `
       <section class="streams-print-sheet streams-print-sheet--cover" data-print="cover">
-        <p class="streams-print-cover__eyebrow">streams-sizing · engine ${ENGINE_VERSION}</p>
+        <p class="streams-print-cover__eyebrow">streams-sizing · engine ${ENGINE_VERSION} · Streams for Apache Kafka 3.2</p>
         <h2 class="streams-print-sheet__title">Kafka cluster sizing results</h2>
         <p class="streams-print-cover__scenario">Scenario: <strong>${scenarioLabel}</strong></p>
         <table class="streams-results-table streams-results-table--total">
           <tr><th>Ingress / binding</th><td><strong>${r.ingressMBps} MB/s</strong> · ${r.bindingConstraint}</td></tr>
-          <tr><th>Nodes</th><td><strong>${t.nodes}</strong> (${t.brokerNodes} brokers + ${t.controllerNodes} controllers)</td></tr>
+          <tr><th>OpenShift nodes (Streams)</th><td><strong>${t.nodes}</strong> (${t.brokerNodes} brokers + ${t.controllerNodes} controllers) · <strong>${t.vcpus}</strong> vCPU</td></tr>
+          <tr><th>RHAF complementary vCPU</th><td><strong>${r.rhaf?.totals?.vcpus ?? '—'}</strong> (${r.rhaf?.totals?.instances ?? 0} instances)</td></tr>
           <tr><th>Kafka data volume</th><td><strong>${formatGb(t.kafkaDataDiskGB)}</strong></td></tr>
           <tr><th>Total provisioned disk</th><td><strong>${formatGb(t.diskGB)}</strong></td></tr>
-          <tr><th>Subscription cores</th><td><strong>${t.subscriptionCoresReported}</strong> (${r.subscriptionPolicy})</td></tr>
+          <tr><th>Subscription cores</th><td><strong>${t.subscriptionCoresReported}</strong></td></tr>
           <tr><th>Platform</th><td>${pd.deploymentTarget}</td></tr>
           <tr><th>Printed</th><td>${new Date().toLocaleString()}</td></tr>
         </table>
-        <p class="streams-print-cover__hint">Following pages: Total cluster · Breakdown · RHAF · Integrations · Architecture · Planning · Trace</p>
+        <p class="streams-print-cover__hint">Following pages: Subscription calc · Total cluster · Breakdown · RHAF · Integrations · Architecture · Planning · Trace</p>
+      </section>
+
+      <section class="streams-print-sheet" data-print="subscription">
+        <h2 class="streams-print-sheet__title">Subscription cores — calculation</h2>
+        <p class="streams-print-sheet__meta">Reporting policy only; does not change physical broker/controller sizing.</p>
+        <table class="streams-results-table streams-results-table--total">
+          <tr><th>Policy used</th><td><strong>${subPolicy}</strong></td></tr>
+          <tr><th>Formula</th><td>${subCalc}</td></tr>
+          <tr><th>Brokers × vCPU/broker</th><td>${t.brokerNodes} × ${r.vcpusPerBroker}</td></tr>
+          <tr><th>Reported cores</th><td><strong>${t.subscriptionCoresReported}</strong></td></tr>
+          <tr><th>Alternate policy</th><td>${subCalcAlt}</td></tr>
+          <tr><th>Controllers</th><td>${t.controllerNodes} × ${r.vcpusPerController} vCPU — not counted in Streams broker subscription line</td></tr>
+        </table>
+        <p class="streams-print-sheet__meta"><small>Failover excluded = omit one broker as spare capacity. Align final policy with contracts.</small></p>
       </section>`;
 
   return `
