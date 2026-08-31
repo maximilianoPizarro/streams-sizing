@@ -6,7 +6,7 @@
  * @see docs/methodology.md
  */
 
-export const ENGINE_VERSION = '1.1.1';
+export const ENGINE_VERSION = '1.1.2';
 
 export const DEFAULTS = {
   safetyFactor: 1.6,
@@ -730,16 +730,43 @@ function estimateIntegrations(input, { writesMB }) {
   };
 }
 
-export function exportScenario(name, input, result) {
-  return {
+/**
+ * Export a reproducible planning package.
+ * Optional `planning` carries human audit fields (assumptions, topology, domains)
+ * that do not affect sizing math but round-trip through import.
+ *
+ * @param {string} name
+ * @param {object} input
+ * @param {object} result
+ * @param {{ description?: string, assumptions?: object, topology?: object, domains?: object[] }} [planning]
+ */
+export function exportScenario(name, input, result, planning = {}) {
+  const out = {
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
     name,
     input,
     result,
   };
+  if (planning.description != null && planning.description !== '') {
+    out.description = planning.description;
+  }
+  if (planning.assumptions && typeof planning.assumptions === 'object') {
+    out.assumptions = planning.assumptions;
+  }
+  if (planning.topology && typeof planning.topology === 'object') {
+    out.topology = planning.topology;
+  }
+  if (Array.isArray(planning.domains) && planning.domains.length) {
+    out.domains = planning.domains;
+  }
+  return out;
 }
 
+/**
+ * Validate and normalize a scenario / planning-package JSON.
+ * Sizing uses `input` only; planning metadata is preserved for audit/UI.
+ */
 export function importScenario(json) {
   if (!json || typeof json !== 'object') {
     throw new Error('Invalid scenario JSON');
@@ -747,5 +774,20 @@ export function importScenario(json) {
   if (!json.input || !json.input.platform) {
     throw new Error('Scenario missing input.platform');
   }
-  return json;
+  return {
+    schemaVersion: json.schemaVersion ?? 1,
+    name: json.name,
+    description: json.description,
+    assumptions: json.assumptions,
+    topology: json.topology,
+    domains: json.domains,
+    input: json.input,
+    result: json.result,
+    planning: {
+      description: json.description,
+      assumptions: json.assumptions,
+      topology: json.topology,
+      domains: json.domains,
+    },
+  };
 }

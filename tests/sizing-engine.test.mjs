@@ -3,7 +3,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sizeKafkaCluster } from '../engine/sizing-engine.mjs';
+import { sizeKafkaCluster, exportScenario, importScenario } from '../engine/sizing-engine.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -347,4 +347,65 @@ test('includeRhaf: 0 disables RHAF (numeric false)', () => {
   const fx = loadFixture('fixture-light');
   const result = sizeKafkaCluster({ ...fx.input, includeRhaf: 0 });
   assert.equal(result.rhaf, null);
+});
+
+test('fixture-entry-10pct-50tps: year-2 projection golden', () => {
+  const fx = loadFixture('fixture-entry-10pct-50tps');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.ingressMBps, fx.expected.ingressMBps);
+  assert.equal(result.dailyDiskUsageGB, fx.expected.dailyDiskUsageGB);
+  assert.equal(result.totalDiskStorageGB, fx.expected.totalDiskStorageGB);
+  assert.equal(result.brokerNodes, fx.expected.brokerNodes);
+  assert.equal(result.controllerNodes, fx.expected.controllerNodes);
+  assert.equal(result.diskPerBrokerGB, fx.expected.diskPerBrokerGB);
+  assert.equal(result.bindingConstraint, fx.expected.bindingConstraint);
+  assert.equal(result.subscriptionCoresReported, fx.expected.subscriptionCoresReported);
+  assert.equal(result.rhaf.components.length, fx.expected.rhafComponentCount);
+  assert.ok(result.rhaf.components.some((c) => c.name.includes('Keycloak')));
+  assert.ok(result.rhaf.components.some((c) => c.name.includes('MirrorMaker')));
+  assert.equal(result.integrations.pattern, 'camelAndExternal');
+});
+
+test('fixture-entry-10pct-50tps: year-0 without growth', () => {
+  const fx = loadFixture('fixture-entry-10pct-50tps');
+  const result = sizeKafkaCluster({
+    ...fx.input,
+    annualGrowthRatePercent: 0,
+    projectionYears: 0,
+  });
+  assert.equal(result.ingressMBps, fx.expected.year0.ingressMBps);
+  assert.equal(result.totalDiskStorageGB, fx.expected.year0.totalDiskStorageGB);
+  assert.equal(result.brokerNodes, fx.expected.year0.brokerNodes);
+  assert.equal(result.diskPerBrokerGB, fx.expected.year0.diskPerBrokerGB);
+});
+
+test('fixture-peak-500-to-3k-tps: year-2 projection golden', () => {
+  const fx = loadFixture('fixture-peak-500-to-3k-tps');
+  const result = sizeKafkaCluster(fx.input);
+  assert.equal(result.ingressMBps, fx.expected.ingressMBps);
+  assert.equal(result.dailyDiskUsageGB, fx.expected.dailyDiskUsageGB);
+  assert.equal(result.totalDiskStorageGB, fx.expected.totalDiskStorageGB);
+  assert.equal(result.brokerNodes, fx.expected.brokerNodes);
+  assert.equal(result.diskPerBrokerGB, fx.expected.diskPerBrokerGB);
+  assert.equal(result.subscriptionCoresReported, fx.expected.subscriptionCoresReported);
+  assert.equal(result.rhaf.components.length, fx.expected.rhafComponentCount);
+  assert.equal(result.integrations.pattern, 'camelAndExternal');
+});
+
+test('exportScenario preserves planning metadata round-trip', () => {
+  const fx = loadFixture('fixture-peak-500-to-3k-tps');
+  const result = sizeKafkaCluster(fx.input);
+  const exported = exportScenario(fx.id, fx.input, result, {
+    description: fx.description,
+    assumptions: fx.assumptions,
+    topology: fx.topology,
+    domains: fx.domains,
+  });
+  const imported = importScenario(exported);
+  assert.equal(imported.planning.description, fx.description);
+  assert.deepEqual(imported.planning.assumptions, fx.assumptions);
+  assert.deepEqual(imported.planning.topology, fx.topology);
+  assert.equal(imported.domains.length, 2);
+  const again = sizeKafkaCluster(imported.input);
+  assert.deepEqual(again.trace, result.trace);
 });

@@ -4,8 +4,8 @@ import {
   importScenario,
   DEFAULTS,
   ENGINE_VERSION,
-} from './sizing-engine.mjs?v=14';
-import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=14';
+} from './sizing-engine.mjs?v=15';
+import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=15';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -56,7 +56,28 @@ const state = {
   result: null,
   lastCalculatedAt: null,
   loadedFixtureId: null,
+  /** Optional audit metadata from planning packages / imports (not used in math). */
+  planning: null,
 };
+
+function planningFromPackage(pkg) {
+  if (!pkg) return null;
+  const planning = pkg.planning ?? {
+    description: pkg.description,
+    assumptions: pkg.assumptions,
+    topology: pkg.topology,
+    domains: pkg.domains,
+  };
+  if (
+    !planning?.description &&
+    !planning?.assumptions &&
+    !planning?.topology &&
+    !(planning?.domains?.length)
+  ) {
+    return null;
+  }
+  return planning;
+}
 
 function prepareInput(input) {
   const out = { ...input };
@@ -548,6 +569,14 @@ function renderResultsStep() {
 
       ${architectureBlock}
 
+      ${state.planning ? `
+      <h2>Planning package</h2>
+      <p class="streams-step-intro">
+        Audit metadata from the imported/loaded scenario (does not change sizing math). Re-export preserves these fields.
+      </p>
+      <pre class="streams-trace">${JSON.stringify(state.planning, null, 2)}</pre>
+      ` : ''}
+
       <h2>Verification trace</h2>
       <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>
 
@@ -560,7 +589,9 @@ function renderResultsStep() {
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-light">Load fixture: light</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-economize">Load fixture: economize light</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-load-heavy">Load fixture: heavy</button>
-        <button type="button" class="streams-btn streams-btn--link" id="btn-load-example">Load fixture: aggregate example</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-example">Load fixture: aggregate example (~500 MB/s)</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-entry-tps">Load fixture: entry 10% (50 TPS)</button>
+        <button type="button" class="streams-btn streams-btn--link" id="btn-load-peak-tps">Load fixture: peak 500→3K TPS</button>
       </div>
     </div>`;
 }
@@ -613,13 +644,14 @@ function bindFields() {
 
 function bindResultsActions() {
   document.getElementById('btn-export')?.addEventListener('click', () => {
+    const name = state.loadedFixtureId || 'custom';
     const blob = new Blob(
-      [JSON.stringify(exportScenario('custom', state.input, state.result), null, 2)],
+      [JSON.stringify(exportScenario(name, state.input, state.result, state.planning ?? {}), null, 2)],
       { type: 'application/json' }
     );
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'streams-sizing-scenario.json';
+    a.download = `${name}.json`;
     a.click();
   });
 
@@ -634,6 +666,7 @@ function bindResultsActions() {
     if (typeof state.input.includeDr === 'boolean') {
       state.input.includeDr = state.input.includeDr ? 1 : 0;
     }
+    state.planning = planningFromPackage(json);
     state.loadedFixtureId = json.name ?? 'imported';
     if (json.result?.engineVersion && json.result.engineVersion !== ENGINE_VERSION) {
       console.warn(
@@ -649,6 +682,8 @@ function bindResultsActions() {
   document.getElementById('btn-load-economize')?.addEventListener('click', () => loadFixture('fixture-economize-light'));
   document.getElementById('btn-load-heavy')?.addEventListener('click', () => loadFixture('fixture-heavy'));
   document.getElementById('btn-load-example')?.addEventListener('click', () => loadFixture('fixture-example-aggregate'));
+  document.getElementById('btn-load-entry-tps')?.addEventListener('click', () => loadFixture('fixture-entry-10pct-50tps'));
+  document.getElementById('btn-load-peak-tps')?.addEventListener('click', () => loadFixture('fixture-peak-500-to-3k-tps'));
 
   document.getElementById('btn-copy-arch')?.addEventListener('click', async () => {
     const text = document.getElementById('architecture-mermaid')?.textContent ?? '';
@@ -724,6 +759,7 @@ async function loadFixture(name, targetStep = null) {
   if (typeof state.input.includeDr === 'boolean') {
     state.input.includeDr = state.input.includeDr ? 1 : 0;
   }
+  state.planning = planningFromPackage(fx);
   state.loadedFixtureId = fx.id ?? name;
   state.step = targetStep ?? STEPS.length - 1;
   renderNav();

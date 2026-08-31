@@ -23,6 +23,10 @@ Golden fixtures (anonymized workloads):
 | `docs/fixtures/fixture-economize-light.json` | Same ingress, 3-day retention, no RHAF → lower disk |
 | `docs/fixtures/fixture-heavy.json` | ~500 MB/s ingress, **high consumer fan-out** → **16 brokers** |
 | `docs/fixtures/fixture-example-aggregate.json` | ~500 MB/s prod example (low fan-out) → **10 brokers**, 388800 GB |
+| `docs/fixtures/fixture-entry-10pct-50tps.json` | Entry **10% volume**: 50 TPS @ 8 KB → ~300 TPS @ 24m, RHAF+DR, `camelAndExternal` |
+| `docs/fixtures/fixture-peak-500-to-3k-tps.json` | Full aggregate: **500 TPS → ~3K TPS** @ 24m, RHAF+DR, `camelAndExternal` |
+
+Planning packages at repo root (`scenario-entry-10pct-50tps-72h-dr.json`, `scenario-peak-500-to-3k-tps-72h-dr.json`) include `assumptions` / `topology` / optional `domains`. Import in the UI preserves that metadata on re-export (`exportScenario` 4th argument).
 
 The GitHub Pages UI loads copies under `docs/assets/fixtures/` (Jekyll excludes `docs/fixtures/` from the site build). Keep both trees in sync with `npm run sync-engine`.
 

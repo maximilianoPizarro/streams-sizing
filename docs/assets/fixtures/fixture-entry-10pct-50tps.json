@@ -1,0 +1,83 @@
+{
+  "id": "fixture-entry-10pct-50tps",
+  "description": "Entry-level planning package: 10% of aggregate peak volume (50 of 500 TPS) @ 8KB, retention 72h, RF=3. Models one replicated pair (2 clusters, Site A↔B via MirrorMaker 2) for comparison against full footprint. Auth LDAP/Ranger/Kerberos migration and commercial costs are out of sizing scope.",
+  "input": {
+    "platform": "openshift",
+    "messageSizeBytes": 8000,
+    "replicas": 3,
+    "netSpeedGbps": 10,
+    "diskThroughputMBps": 400,
+    "maxUtil": 0.65,
+    "safetyFactor": 1.6,
+    "duplexMode": "full",
+    "consumerGroups": 3,
+    "laggingConsumers": 0,
+    "retentionDays": 3,
+    "extendedRetentionDays": 0,
+    "extendedRetentionPercent": 0,
+    "diskCapacityHeadroom": 1.25,
+    "diskSegmentOverhead": 0.05,
+    "annualGrowthRatePercent": 145,
+    "projectionYears": 2,
+    "controllerFailuresTolerated": 1,
+    "topicThroughputMBps": 0,
+    "producerThroughputMBps": 0,
+    "consumerThroughputMBps": 0,
+    "includeRhaf": true,
+    "includeDr": true,
+    "subscriptionPolicy": "failoverExcluded",
+    "clientAccessPattern": "camelAndExternal",
+    "camelIntegrations": 2,
+    "quarkusRuntimes": 2,
+    "messageRate": 50
+  },
+  "expected": {
+    "engineVersion": "1.1.2",
+    "ingressMBps": 2.4,
+    "dailyDiskUsageGB": 623,
+    "totalDiskStorageGB": 1869,
+    "brokerNodes": 4,
+    "controllerNodes": 3,
+    "diskPerBrokerGB": 614,
+    "bindingConstraint": "disk",
+    "subscriptionCoresReported": 24,
+    "rhafComponentCount": 6,
+    "year0": {
+      "ingressMBps": 0.4,
+      "dailyDiskUsageGB": 104,
+      "totalDiskStorageGB": 312,
+      "brokerNodes": 4,
+      "diskPerBrokerGB": 103,
+      "bindingConstraint": "network"
+    }
+  },
+  "assumptions": {
+    "messageRateUnit": "msg/s (TPS), not MB/s",
+    "messageSize": "8 KB = 8000 bytes",
+    "volumeShare": "10% of aggregate 500 TPS peak → 50 TPS",
+    "retention": "72 hours = 3 days, cleanup policy delete (time-based)",
+    "growth": "Same relative curve as full: 50 TPS → ~300 TPS in ~24 months (annualGrowthRatePercent 145 × projectionYears 2)",
+    "network": "10 Gbps full duplex, low RTT fiber between sites",
+    "clientAccess": "In-cluster consumers plus legacy/external clients (camelAndExternal)",
+    "includeDr": "MirrorMaker 2 workers sized; pair implies active + replica Kafka clusters",
+    "outOfScope": "LDAP/AD/Kerberos/Ranger ACL design; commercial cost/price lists"
+  },
+  "topology": {
+    "scope": "entry-level",
+    "productionClustersModeled": 2,
+    "replicatedPairs": 1,
+    "sites": {
+      "siteA": "Primary",
+      "siteB": "Replica / DR",
+      "link": "Fiber, low latency RTT"
+    },
+    "pairs": [
+      {
+        "id": "entry-pair",
+        "clusters": 2,
+        "role": "Entry pair (10% volume) — active + replica"
+      }
+    ],
+    "baselineReference": "Today: clusters often 3 brokers × 32 Gi RAM × 1 TB disk on VMs; calculator returns Strimzi pod sizing (RF+1 floor typically 4 brokers)"
+  }
+}
