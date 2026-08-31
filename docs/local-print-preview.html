@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculator | streams-sizing (local)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./assets/css/site.css?v=7">
+</head>
+<body>
+  <div class="streams-page" id="page-main">
+    <header class="streams-masthead" role="banner">
+      <div class="streams-masthead__main">
+        <div class="streams-masthead__brand">
+          <div class="streams-masthead__titles">
+            <span class="streams-masthead__product-row">
+              <span class="streams-masthead__product-name">Streams for Apache Kafka</span>
+              <span class="streams-label streams-label--dev-preview">Dev preview</span>
+            </span>
+            <span class="streams-masthead__tool">streams-sizing (local print test)</span>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="streams-main" id="main-content">
+      <div class="streams-hero">
+        <h1 class="streams-hero__title">Size your Kafka cluster</h1>
+      </div>
+      <div id="calculator-app" class="streams-calculator">
+        <div class="streams-wizard">
+          <ul class="streams-wizard__nav" id="wizard-nav"></ul>
+          <div class="streams-wizard__body" id="wizard-body"></div>
+          <footer class="streams-wizard__footer">
+            <button type="button" class="streams-btn streams-btn--secondary" id="btn-back" disabled>Back</button>
+            <button type="button" class="streams-btn streams-btn--primary" id="btn-next">Next</button>
+          </footer>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="./assets/js/app.js?v=16"></script>
+</body>
+</html>

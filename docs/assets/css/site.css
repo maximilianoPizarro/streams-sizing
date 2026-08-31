@@ -658,3 +658,168 @@ body {
     padding: 0.85rem 1rem;
   }
 }
+
+/* ---- Screen: print cover is print-only ---- */
+.streams-print-sheet--cover {
+  display: none;
+}
+
+/* ---- Print / Save as PDF (browser) ---- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #151515 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .streams-masthead,
+  .streams-nav,
+  .streams-hero,
+  .streams-disclaimer,
+  .streams-wizard__nav,
+  .streams-wizard__footer,
+  .streams-footer,
+  .streams-print-hide,
+  .streams-print-sheet--screen-only,
+  .streams-actions,
+  .streams-arch-source {
+    display: none !important;
+  }
+
+  .streams-page,
+  .streams-main,
+  .streams-calculator,
+  .streams-wizard,
+  .streams-wizard__body,
+  .streams-results {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  .streams-print-sheet--cover {
+    display: flex !important;
+  }
+
+  .streams-print-sheet {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 260mm;
+    width: 100%;
+    padding: 8mm 4mm;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .streams-print-sheet:last-of-type {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .streams-print-sheet > * {
+    width: 100%;
+    max-width: 170mm;
+  }
+
+  .streams-print-sheet__title {
+    margin: 0 0 0.75rem !important;
+    text-align: center;
+    font-size: 1.25rem !important;
+    color: #151515 !important;
+  }
+
+  .streams-print-sheet__meta {
+    text-align: center;
+    margin: 0 0 0.75rem;
+  }
+
+  .streams-print-cover__eyebrow {
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.75rem;
+    color: #6a6e73;
+    margin: 0 0 0.5rem;
+  }
+
+  .streams-print-cover__scenario {
+    text-align: center;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+  }
+
+  .streams-print-cover__hint {
+    text-align: center;
+    margin: 1rem 0 0;
+    font-size: 0.75rem;
+    color: #6a6e73;
+  }
+
+  .streams-results-table {
+    width: 100% !important;
+    max-width: 170mm;
+    margin: 0 auto 0 !important;
+    font-size: 10pt !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .streams-results-table th,
+  .streams-results-table td {
+    border: 1px solid #8a8d90 !important;
+    padding: 0.4rem 0.55rem !important;
+  }
+
+  .streams-results-table th {
+    background: #f0f0f0 !important;
+    width: 40%;
+  }
+
+  .streams-print-arch {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 170mm;
+    margin: 0 auto;
+  }
+
+  .streams-print-arch svg {
+    max-width: 100% !important;
+    max-height: 210mm !important;
+    height: auto !important;
+    width: auto !important;
+  }
+
+  .streams-print-trace {
+    max-height: none !important;
+    overflow: visible !important;
+    font-size: 7.5pt !important;
+    line-height: 1.35 !important;
+    white-space: pre-wrap !important;
+    word-break: break-word;
+    background: #151515 !important;
+    color: #f0f0f0 !important;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+}

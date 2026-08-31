@@ -4,8 +4,8 @@ import {
   importScenario,
   DEFAULTS,
   ENGINE_VERSION,
-} from './sizing-engine.mjs?v=15';
-import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=15';
+} from './sizing-engine.mjs?v=16';
+import { architectureDiagramFromScenario } from './architecture-diagram.mjs?v=16';
 
 const STEPS = [
   { id: 'platform', title: 'Platform' },
@@ -438,21 +438,25 @@ function renderResultsStep() {
 
   const integrationsSection = r.integrations
     ? `
-      <h2>Integrations (Camel / Quarkus)</h2>
-      <p><small>${r.integrations.disclaimer}</small></p>
-      <p><small>Pattern: <code>${r.integrations.pattern}</code></small></p>
+      <section class="streams-print-sheet" data-print="integrations">
+      <h2 class="streams-print-sheet__title">Integrations (Camel / Quarkus)</h2>
+      <p class="streams-print-sheet__meta"><small>${r.integrations.disclaimer}</small></p>
+      <p class="streams-print-sheet__meta"><small>Pattern: <code>${r.integrations.pattern}</code></small></p>
       <table class="streams-results-table">
         ${integRows}
         ${r.integrations.totals ? `<tr><th>Integrations subtotal</th><td>${r.integrations.totals.instances} instances · ${r.integrations.totals.vcpus} vCPU · ${r.integrations.totals.memoryGi} Gi RAM</td></tr>` : ''}
       </table>
       ${integNotes ? `<ul class="streams-step-intro">${integNotes}</ul>` : ''}
+      </section>
     `
     : `
+      <section class="streams-print-sheet streams-print-sheet--screen-only" data-print="integrations-skip">
       <h2>Integrations (Camel / Quarkus)</h2>
       <p class="streams-step-intro">
         Not included — client access pattern is <code>inCluster</code>.
         Select Camel and/or external clients outside OpenShift in the previous step to size integration runtimes.
       </p>
+      </section>
     `;
 
   const resultsIntro = state.loadedFixtureId
@@ -466,50 +470,81 @@ function renderResultsStep() {
       { format: 'mermaid' }
     );
     architectureBlock = `
-      <h2>Architecture diagram</h2>
-      <p class="streams-step-intro">
+      <section class="streams-print-sheet" data-print="architecture">
+      <h2 class="streams-print-sheet__title">Architecture diagram</h2>
+      <p class="streams-step-intro streams-print-hide">
         Preview rendered on this page from the separate <code>architecture-diagram</code> module (Mermaid).
         Sizing math is unchanged — use Copy / Download if you need the source elsewhere.
       </p>
-      <div class="streams-arch-preview" id="architecture-preview" aria-live="polite">
+      <div class="streams-arch-preview streams-print-arch" id="architecture-preview" aria-live="polite">
         <p class="streams-step-intro">Rendering diagram…</p>
       </div>
-      <details class="streams-arch-source">
+      <details class="streams-arch-source streams-print-hide">
         <summary>Mermaid source</summary>
         <pre class="streams-trace streams-arch-diagram" id="architecture-mermaid">${arch.diagram.replace(/</g, '&lt;')}</pre>
       </details>
-      <div class="streams-actions" style="margin-top:0.75rem">
+      <div class="streams-actions streams-print-hide" style="margin-top:0.75rem">
         <button type="button" class="streams-btn streams-btn--secondary" id="btn-copy-arch">Copy Mermaid</button>
         <button type="button" class="streams-btn streams-btn--link" id="btn-download-arch">Download .mmd</button>
-      </div>`;
+      </div>
+      </section>`;
   } catch (err) {
     architectureBlock = `<p class="streams-step-intro"><small>Architecture diagram unavailable: ${err.message}</small></p>`;
   }
 
   const rhafSection = r.rhaf
     ? `
-      <h2>RHAF complementary components</h2>
-      <p><small>${r.rhaf?.disclaimer ?? ''}</small></p>
+      <section class="streams-print-sheet" data-print="rhaf">
+      <h2 class="streams-print-sheet__title">RHAF complementary components</h2>
+      <p class="streams-print-sheet__meta"><small>${r.rhaf?.disclaimer ?? ''}</small></p>
       <table class="streams-results-table">
         ${rhafRows}
         ${r.rhaf?.totals ? `<tr><th>RHAF subtotal</th><td>${r.rhaf.totals.instances} instances · ${r.rhaf.totals.vcpus} vCPU · ${r.rhaf.totals.memoryGi} Gi RAM</td></tr>` : ''}
         ${r.rhaf?.kafkaExporter ? `<tr><th>Kafka Exporter</th><td>${r.rhaf.kafkaExporter.vcpu} vCPU · ${r.rhaf.kafkaExporter.memoryGi} Gi — ${r.rhaf.kafkaExporter.note}</td></tr>` : ''}
-      </table>`
+      </table>
+      </section>`
     : `
+      <section class="streams-print-sheet streams-print-sheet--screen-only" data-print="rhaf-skip">
       <h2>RHAF complementary components</h2>
-      <p class="streams-step-intro">Not included — <code>includeRhaf</code> is off. Enable it in Durability to size Registry, Bridge, Console, and related add-ons.</p>`;
+      <p class="streams-step-intro">Not included — <code>includeRhaf</code> is off. Enable it in Durability to size Registry, Bridge, Console, and related add-ons.</p>
+      </section>`;
+
+  const scenarioLabel = state.loadedFixtureId ?? 'custom';
+  const printCover = `
+      <section class="streams-print-sheet streams-print-sheet--cover" data-print="cover">
+        <p class="streams-print-cover__eyebrow">streams-sizing · engine ${ENGINE_VERSION}</p>
+        <h2 class="streams-print-sheet__title">Kafka cluster sizing results</h2>
+        <p class="streams-print-cover__scenario">Scenario: <strong>${scenarioLabel}</strong></p>
+        <table class="streams-results-table streams-results-table--total">
+          <tr><th>Ingress / binding</th><td><strong>${r.ingressMBps} MB/s</strong> · ${r.bindingConstraint}</td></tr>
+          <tr><th>Nodes</th><td><strong>${t.nodes}</strong> (${t.brokerNodes} brokers + ${t.controllerNodes} controllers)</td></tr>
+          <tr><th>Kafka data volume</th><td><strong>${formatGb(t.kafkaDataDiskGB)}</strong></td></tr>
+          <tr><th>Total provisioned disk</th><td><strong>${formatGb(t.diskGB)}</strong></td></tr>
+          <tr><th>Subscription cores</th><td><strong>${t.subscriptionCoresReported}</strong> (${r.subscriptionPolicy})</td></tr>
+          <tr><th>Platform</th><td>${pd.deploymentTarget}</td></tr>
+          <tr><th>Printed</th><td>${new Date().toLocaleString()}</td></tr>
+        </table>
+        <p class="streams-print-cover__hint">Following pages: Total cluster · Breakdown · RHAF · Integrations · Architecture · Planning · Trace</p>
+      </section>`;
 
   return `
-    <div class="streams-results">
-      <p class="streams-step-intro">
+    <div class="streams-results" data-print-root>
+      <p class="streams-step-intro streams-print-hide">
         ${resultsIntro}
         ${state.lastCalculatedAt
           ? `<span class="streams-calc-stamp" data-calc-stamp>Calculated at ${new Date(state.lastCalculatedAt).toLocaleTimeString()}</span>`
           : ''}
       </p>
 
-      <h2>Total cluster</h2>
-      <p class="streams-step-intro">
+      <div class="streams-actions streams-print-hide" style="margin-bottom:1rem">
+        <button type="button" class="streams-btn streams-btn--primary" id="btn-print-pdf" title="Opens the browser print dialog — choose Save as PDF">Print / Save as PDF</button>
+      </div>
+
+      ${printCover}
+
+      <section class="streams-print-sheet" data-print="total">
+      <h2 class="streams-print-sheet__title">Total cluster</h2>
+      <p class="streams-step-intro streams-print-hide">
         These totals are <strong>Kafka broker + controller pods</strong> (Strimzi <code>KafkaNodePool</code> replicas and resource requests),
         not OpenShift worker or infra node SKUs. Pack pods onto dedicated workers; do not place Kafka on control-plane/infra nodes.
         <a href="https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/streams_for_apache_kafka_on_openshift_overview/kafka-components_str" rel="noopener noreferrer">Streams 3.2 — Node pools</a>.
@@ -527,9 +562,10 @@ function renderResultsStep() {
         ${withRhaf}
         ${withIntegrations}
       </table>
+      </section>
 
-      <section id="results-breakdown" class="streams-results-section" tabindex="-1">
-      <h2>Breakdown (${pd.deploymentTarget})</h2>
+      <section id="results-breakdown" class="streams-results-section streams-print-sheet" tabindex="-1" data-print="breakdown">
+      <h2 class="streams-print-sheet__title">Breakdown (${pd.deploymentTarget})</h2>
       <table class="streams-results-table streams-results-table--breakdown">
         <tr><th>Broker nodes</th><td>${r.brokerNodes} × ${r.vcpusPerBroker} vCPU, ${r.memPerBrokerGB} Gi RAM, ${formatGb(r.diskPerBrokerGB)} disk</td></tr>
         <tr><th>Controller nodes (KRaft)</th><td>${r.controllerNodes} × ${r.vcpusPerController} vCPU, ${r.memPerControllerGB} Gi RAM, ${formatGb(r.diskPerControllerGB)} disk</td></tr>
@@ -543,6 +579,7 @@ function renderResultsStep() {
       </table>
       </section>
 
+      <section class="streams-print-sheet streams-print-sheet--screen-only" data-print="economize">
       <h2>Economize (suggestions)</h2>
       <p class="streams-step-intro">
         Contextual levers to reduce storage, OpenShift footprint, or reported subscription — without moving Kafka onto infra nodes.
@@ -557,30 +594,37 @@ function renderResultsStep() {
             ${s.source ? `<small>Source: ${s.source}</small>` : ''}
           </li>`).join('')}
       </ul>
+      </section>
 
       ${rhafSection}
 
       ${integrationsSection}
 
       ${(r.warnings?.length ?? 0) > 0 ? `
-      <h2>Warnings</h2>
+      <section class="streams-print-sheet" data-print="warnings">
+      <h2 class="streams-print-sheet__title">Warnings</h2>
       <ul class="streams-warnings">${r.warnings.map((w) => `<li>${w}</li>`).join('')}</ul>
+      </section>
       ` : ''}
 
       ${architectureBlock}
 
       ${state.planning ? `
-      <h2>Planning package</h2>
-      <p class="streams-step-intro">
+      <section class="streams-print-sheet" data-print="planning">
+      <h2 class="streams-print-sheet__title">Planning package</h2>
+      <p class="streams-step-intro streams-print-hide">
         Audit metadata from the imported/loaded scenario (does not change sizing math). Re-export preserves these fields.
       </p>
-      <pre class="streams-trace">${JSON.stringify(state.planning, null, 2)}</pre>
+      <pre class="streams-trace streams-print-trace">${JSON.stringify(state.planning, null, 2)}</pre>
+      </section>
       ` : ''}
 
-      <h2>Verification trace</h2>
-      <pre class="streams-trace">${JSON.stringify(r.trace, null, 2)}</pre>
+      <section class="streams-print-sheet" data-print="trace">
+      <h2 class="streams-print-sheet__title">Verification trace</h2>
+      <pre class="streams-trace streams-print-trace">${JSON.stringify(r.trace, null, 2)}</pre>
+      </section>
 
-      <div class="streams-actions">
+      <div class="streams-actions streams-print-hide">
         <button type="button" class="streams-btn streams-btn--secondary" id="btn-export">Export scenario (JSON)</button>
         <label class="streams-btn streams-btn--secondary">
           Import scenario
@@ -643,6 +687,19 @@ function bindFields() {
 }
 
 function bindResultsActions() {
+  document.getElementById('btn-print-pdf')?.addEventListener('click', () => {
+    document.body.classList.add('streams-printing');
+    const cleanup = () => {
+      document.body.classList.remove('streams-printing');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    // Allow Mermaid SVG to settle before the print dialog paints
+    requestAnimationFrame(() => {
+      setTimeout(() => window.print(), 50);
+    });
+  });
+
   document.getElementById('btn-export')?.addEventListener('click', () => {
     const name = state.loadedFixtureId || 'custom';
     const blob = new Blob(
