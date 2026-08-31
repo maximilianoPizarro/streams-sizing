@@ -17,7 +17,7 @@ See [Usage walkthrough](docs/usage-walkthrough.md) for a step-by-step example wi
 - Browser **Print / Save as PDF** from Results (paged sheets: cover, subscription math, tables, architecture)
 - Verifiable calculation trace on every result
 - Economize suggestions + optional RHAF / MirrorMaker 2 toggles
-- Architecture Mermaid diagrams from scenario JSON (`engine/architecture-diagram.mjs`)
+- Architecture HTML diagrams from scenario JSON (`engine/architecture-diagram.mjs`) — branded logos + quantities; dual-site when DR is enabled
 
 ## Analytical model
 

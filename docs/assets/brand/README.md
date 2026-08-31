@@ -5,6 +5,8 @@
 | File | Source |
 |------|--------|
 | `red-hat-logo-on-dark.svg` | [Red Hat brand assets CDN](https://static.redhat.com/libs/redhat/brand-assets/2/corp/logo--on-dark.svg) |
+| `logo-red-hat-standard.svg` | Standard Red Hat logo (architecture diagram masthead) |
+| `Logo-Red_Hat-OpenShift-A-Standard-RGB.svg` | Official OpenShift product logo (architecture site panels) |
 | `favicon.svg` | Official hat mark from [ux.redhat.com](https://ux.redhat.com/assets/logo-red-hat.svg) (same asset RHDS uses as site favicon) |
 | `favicon-16.png`, `favicon-32.png`, `favicon.ico` | Generated via `node scripts/generate-favicon.mjs` |
 | `og-preview.png` | Open Graph / Twitter card image (**1200×630**). Generate with `node scripts/generate-og-preview.mjs` |

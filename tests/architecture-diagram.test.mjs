@@ -8,20 +8,43 @@ import { architectureDiagramFromScenario } from '../engine/architecture-diagram.
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('architecture diagram Mermaid from fixture-light', () => {
+test('architecture diagram HTML from fixture-light', () => {
   const fx = JSON.parse(
     readFileSync(join(root, 'docs/fixtures/fixture-light.json'), 'utf8')
   );
   const result = sizeKafkaCluster(fx.input);
-  const { diagram, summary, format } = architectureDiagramFromScenario(
-    { name: fx.id, input: fx.input, result },
-    { format: 'mermaid' }
-  );
-  assert.equal(format, 'mermaid');
+  const { diagram, summary, format } = architectureDiagramFromScenario({
+    name: fx.id,
+    input: fx.input,
+    result,
+  });
+  assert.equal(format, 'html');
+  assert.equal(summary.layout, 'single');
   assert.equal(summary.brokers, result.brokerNodes);
-  assert.match(diagram, /flowchart TB/);
+  assert.match(diagram, /streams-arch/);
   assert.match(diagram, /Kafka brokers/);
   assert.match(diagram, /KRaft controllers/);
+  assert.match(diagram, new RegExp(`${result.brokerNodes} × ${result.vcpusPerBroker} vCPU`));
+  assert.doesNotMatch(diagram, /flowchart/);
+});
+
+test('architecture diagram dual-site when includeDr', () => {
+  const fx = JSON.parse(
+    readFileSync(join(root, 'docs/fixtures/fixture-light.json'), 'utf8')
+  );
+  const input = { ...fx.input, includeDr: true, includeRhaf: true };
+  const result = sizeKafkaCluster(input);
+  const { diagram, summary, format } = architectureDiagramFromScenario({
+    name: 'dr',
+    input,
+    result,
+  });
+  assert.equal(format, 'html');
+  assert.equal(summary.layout, 'dual');
+  assert.match(diagram, /Site A/);
+  assert.match(diagram, /Site B/);
+  assert.match(diagram, /MirrorMaker 2/);
+  assert.match(diagram, /Logo-Red_Hat-OpenShift/);
 });
 
 test('synced docs assets match engine sources', () => {

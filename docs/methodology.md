@@ -140,17 +140,21 @@ Sample scenario: `docs/fixtures/fixture-economize-light.json` (3-day retention, 
 
 Topology diagrams are **not** part of the sizing formulas. Use
 [`engine/architecture-diagram.mjs`](../engine/architecture-diagram.mjs) to turn a scenario
-JSON / sizing result into Mermaid (or PlantUML):
+JSON / sizing result into a branded **HTML** fragment (official logos when present, always with quantities; dual-site when `includeDr`):
 
 ```js
 import { sizeKafkaCluster } from './sizing-engine.mjs';
 import { architectureDiagramFromScenario } from './architecture-diagram.mjs';
 
 const result = sizeKafkaCluster(input);
-const { diagram } = architectureDiagramFromScenario({ input, result }, { format: 'mermaid' });
+const { diagram, format, summary } = architectureDiagramFromScenario(
+  { input, result },
+  { assetBase: '/streams-sizing/assets/brand/' }
+);
+// format === 'html'
 ```
 
-The Results step renders the Mermaid diagram **inline** (via CDN) and also offers Copy / Download `.mmd`. Sync with `npm run sync-engine`.
+The Results step injects that HTML (single diagram; no Mermaid). Sync with `npm run sync-engine`.
 
 ## Platform outputs
 

@@ -1,19 +1,25 @@
 /**
  * Architecture diagram module (separate from sizing math).
- * Builds Mermaid (and optional PlantUML) views from a sizing scenario /
- * sizeKafkaCluster() result — for docs, export, or the Results step.
+ * Builds an HTML fragment from a sizing scenario / sizeKafkaCluster() result
+ * for Results preview and print — official brand logos when assets exist,
+ * always with quantities. Dual-site when includeDr.
  *
  * Does not change broker/controller formulas; only visualizes topology.
  */
 
+/** Filenames under docs/assets/brand/ (resolved via opts.assetBase in the UI). */
+const LOGO_FILES = {
+  redhat: 'logo-red-hat-standard.svg',
+  openshift: 'Logo-Red_Hat-OpenShift-A-Standard-RGB.svg',
+};
+
 /**
  * @param {{ input?: object, result?: object, name?: string }} scenario
- *   Accepts exportScenario() shape or { input, result } after sizeKafkaCluster.
- * @param {{ format?: 'mermaid' | 'plantuml', title?: string }} [opts]
- * @returns {{ format: string, diagram: string, summary: object }}
+ * @param {{ title?: string, assetBase?: string }} [opts]
+ *   assetBase — absolute or directory URL ending with / for brand assets (browser).
+ * @returns {{ format: 'html', diagram: string, summary: object }}
  */
 export function architectureDiagramFromScenario(scenario, opts = {}) {
-  const format = opts.format ?? 'mermaid';
   const input = scenario?.input ?? {};
   const result = scenario?.result ?? scenario;
   if (!result || result.brokerNodes == null) {
@@ -25,6 +31,7 @@ export function architectureDiagramFromScenario(scenario, opts = {}) {
     scenario?.name ??
     `streams-sizing ${result.platform ?? input.platform ?? 'cluster'}`;
 
+  const dual = input.includeDr === true;
   const summary = {
     platform: result.platform ?? input.platform,
     brokers: result.brokerNodes,
@@ -32,102 +39,223 @@ export function architectureDiagramFromScenario(scenario, opts = {}) {
     ingressMBps: result.ingressMBps,
     clientAccessPattern: result.clientAccessPattern ?? input.clientAccessPattern ?? 'inCluster',
     includeRhaf: Boolean(result.rhaf),
-    includeDr: input.includeDr === true,
+    includeDr: dual,
     integrations: result.integrations?.pattern ?? null,
+    layout: dual ? 'dual' : 'single',
   };
 
-  const diagram =
-    format === 'plantuml'
-      ? buildPlantuml(title, input, result, summary)
-      : buildMermaid(title, input, result, summary);
+  const assetBase = normalizeAssetBase(opts.assetBase);
+  const diagram = buildHtml(title, result, summary, assetBase);
 
-  return { format, diagram, summary };
+  return { format: 'html', diagram, summary };
+}
+
+function normalizeAssetBase(base) {
+  if (!base) return '';
+  return base.endsWith('/') ? base : `${base}/`;
+}
+
+function logoUrl(assetBase, key) {
+  const file = LOGO_FILES[key];
+  if (!file) return null;
+  return assetBase ? `${assetBase}${file}` : `assets/brand/${file}`;
 }
 
 function esc(s) {
-  return String(s).replace(/[[\](){}|]/g, ' ');
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-function buildMermaid(title, input, result, summary) {
-  const lines = [
-    '%%{init: {"theme": "neutral"}}%%',
-    'flowchart TB',
-    `  subgraph cluster["${esc(title)}"]`,
-    '    direction TB',
-    `    CTRL["KRaft controllers\\n${result.controllerNodes} × ${result.vcpusPerController} vCPU / ${result.memPerControllerGB} Gi"]`,
-    `    BRK["Kafka brokers\\n${result.brokerNodes} × ${result.vcpusPerBroker} vCPU / ${result.memPerBrokerGB} Gi\\n${result.diskPerBrokerGB} GB PVC each"]`,
-    '    CTRL -.->|metadata| BRK',
-    '  end',
-  ];
+function card({ title, qty, logoSrc, logoAlt, modifier = '' }) {
+  const logo = logoSrc
+    ? `<img class="streams-arch__logo" src="${esc(logoSrc)}" alt="${esc(logoAlt ?? '')}" loading="lazy" />`
+    : '';
+  const mod = modifier ? ` ${modifier}` : '';
+  return `<div class="streams-arch__card${mod}">
+    ${logo}
+    <div class="streams-arch__card-body">
+      <div class="streams-arch__card-title">${esc(title)}</div>
+      ${qty ? `<div class="streams-arch__card-qty">${esc(qty)}</div>` : ''}
+    </div>
+  </div>`;
+}
 
+function qtyRole(n, vcpu, memGi, diskGb) {
+  let s = `${n} × ${vcpu} vCPU`;
+  if (memGi != null) s += ` · ${memGi} Gi`;
+  if (diskGb != null) s += ` · ${diskGb} GB PVC`;
+  return s;
+}
+
+function qtyInstances(est) {
+  if (!est) return '';
+  let s = `${est.instances}× ${est.vcpuEach} vCPU`;
+  if (est.memoryGiEach != null) s += ` · ${est.memoryGiEach} Gi`;
+  return s;
+}
+
+function buildClientCards(summary, result) {
+  const parts = [];
   const pattern = summary.clientAccessPattern;
   if (pattern === 'inCluster' || !pattern) {
-    lines.push('  APPS["In-cluster producers / consumers"] -->|Kafka protocol| BRK');
+    parts.push(card({ title: 'In-cluster producers / consumers', qty: 'Kafka protocol' }));
   }
   if (pattern === 'camel' || pattern === 'camelAndExternal') {
-    lines.push('  CAMEL["Camel for Quarkus integrations"] -->|Kafka| BRK');
+    const camel = result.integrations?.components?.find((c) => /Camel/i.test(c.name));
+    parts.push(
+      card({
+        title: camel?.name ?? 'Red Hat build of Apache Camel',
+        qty: camel ? qtyInstances(camel.estimate) : undefined,
+      })
+    );
   }
   if (pattern === 'external' || pattern === 'camelAndExternal') {
-    lines.push('  EXT["External Quarkus clients\\n(outside OpenShift)"] -->|listener| BRK');
+    const quarkus = result.integrations?.components?.find((c) => /Quarkus/i.test(c.name));
+    parts.push(
+      card({
+        title: quarkus?.name ?? 'External Quarkus clients',
+        qty: quarkus
+          ? qtyInstances(quarkus.estimate)
+          : 'Outside OpenShift · external listener',
+      })
+    );
   }
+  return parts.join('\n');
+}
 
-  if (result.rhaf?.components?.length) {
-    lines.push('  subgraph rhaf["RHAF complementary"]');
-    lines.push('    direction LR');
-    result.rhaf.components.forEach((c, i) => {
-      const id = `RHAF${i}`;
-      lines.push(
-        `    ${id}["${esc(c.name)}\\n${c.estimate.instances}× ${c.estimate.vcpuEach} vCPU"]`
-      );
-      lines.push(`    ${id} -.-> BRK`);
-    });
-    lines.push('  end');
-  }
+function buildKafkaCore(result, { replica = false } = {}) {
+  const streamsTitle = replica
+    ? 'Streams for Apache Kafka (replica)'
+    : 'Red Hat Streams for Apache Kafka';
+  return `<div class="streams-arch__kafka">
+    <div class="streams-arch__kafka-label">${esc(streamsTitle)}</div>
+    ${card({
+      title: 'KRaft controllers',
+      qty: qtyRole(
+        result.controllerNodes,
+        result.vcpusPerController,
+        result.memPerControllerGB,
+        result.diskPerControllerGB
+      ),
+    })}
+    ${card({
+      title: 'Kafka brokers',
+      qty: qtyRole(
+        result.brokerNodes,
+        result.vcpusPerBroker,
+        result.memPerBrokerGB,
+        result.diskPerBrokerGB
+      ),
+      modifier: 'streams-arch__card--broker',
+    })}
+  </div>`;
+}
 
-  if (input.includeDr === true) {
-    lines.push('  MM2["MirrorMaker 2"] -->|replicate| BRK');
-    lines.push('  MM2 -->|to| DR["DR / remote cluster"]');
-  }
-
-  lines.push(
-    `  NOTE["Ingress ${result.ingressMBps} MB/s · binding ${result.bindingConstraint}\\nSubscription cores ${result.subscriptionCoresReported} (${result.subscriptionPolicy})"]`
+function buildRhafCards(result, { omitMirrorMaker = false } = {}) {
+  const components = (result.rhaf?.components ?? []).filter(
+    (c) => !(omitMirrorMaker && /MirrorMaker/i.test(c.name))
   );
-  lines.push('  BRK --- NOTE');
-
-  return `${lines.join('\n')}\n`;
+  if (!components.length) return '';
+  const cards = components
+    .map((c) => card({ title: c.name, qty: qtyInstances(c.estimate) }))
+    .join('\n');
+  return `<div class="streams-arch__rhaf">
+    <div class="streams-arch__section-label">RHAF complementary</div>
+    <div class="streams-arch__rhaf-grid">${cards}</div>
+  </div>`;
 }
 
-function buildPlantuml(title, input, result, summary) {
-  const lines = [
-    '@startuml',
-    `title ${esc(title)}`,
-    'skinparam componentStyle rectangle',
-    `package "Kafka (${summary.platform})" {`,
-    `  component "Controllers\\n${result.controllerNodes}" as CTRL`,
-    `  component "Brokers\\n${result.brokerNodes}" as BRK`,
-    '  CTRL ..> BRK : metadata',
-    '}',
-  ];
-  if (summary.clientAccessPattern === 'camel' || summary.clientAccessPattern === 'camelAndExternal') {
-    lines.push('component "Camel" as CAMEL');
-    lines.push('CAMEL --> BRK');
-  }
-  if (summary.clientAccessPattern === 'external' || summary.clientAccessPattern === 'camelAndExternal') {
-    lines.push('component "External clients" as EXT');
-    lines.push('EXT --> BRK');
-  }
-  if (input.includeDr === true) {
-    lines.push('component "MirrorMaker 2" as MM2');
-    lines.push('MM2 --> BRK');
-  }
-  lines.push('@enduml');
-  return `${lines.join('\n')}\n`;
+function buildSitePanel({
+  label,
+  result,
+  summary,
+  assetBase,
+  showClients,
+  showRhaf,
+  omitMirrorMaker,
+  replica,
+}) {
+  const ocp = logoUrl(assetBase, 'openshift');
+  return `<section class="streams-arch__site${replica ? ' streams-arch__site--replica' : ''}">
+    <header class="streams-arch__site-header">
+      ${
+        ocp
+          ? `<img class="streams-arch__logo streams-arch__logo--product" src="${esc(ocp)}" alt="Red Hat OpenShift" loading="lazy" />`
+          : ''
+      }
+      <h3 class="streams-arch__site-title">${esc(label)}</h3>
+    </header>
+    <div class="streams-arch__site-body">
+      ${showClients ? `<div class="streams-arch__clients">${buildClientCards(summary, result)}</div>` : ''}
+      ${buildKafkaCore(result, { replica })}
+      ${showRhaf ? buildRhafCards(result, { omitMirrorMaker }) : ''}
+    </div>
+  </section>`;
 }
 
-/**
- * Convenience: size + diagram in one call (keeps diagram module usable standalone
- * when caller already has a result).
- */
-export function mermaidFromSizingResult(result, input = {}, opts = {}) {
-  return architectureDiagramFromScenario({ input, result }, { ...opts, format: 'mermaid' });
+function buildHtml(title, result, summary, assetBase) {
+  const rh = logoUrl(assetBase, 'redhat');
+  const dual = summary.layout === 'dual';
+
+  const mm2 = result.rhaf?.components?.find((c) => /MirrorMaker/i.test(c.name));
+  const bridge = dual
+    ? `<div class="streams-arch__bridge" aria-label="MirrorMaker 2 disaster recovery">
+        ${card({
+          title: 'MirrorMaker 2',
+          qty: mm2
+            ? `${qtyInstances(mm2.estimate)} · fiber DR`
+            : 'Cross-site replication · fiber DR',
+          modifier: 'streams-arch__card--bridge',
+        })}
+      </div>`
+    : '';
+
+  const siteA = buildSitePanel({
+    label: dual ? 'Site A — Active' : 'Cluster',
+    result,
+    summary,
+    assetBase,
+    showClients: true,
+    showRhaf: Boolean(result.rhaf),
+    omitMirrorMaker: dual,
+    replica: false,
+  });
+
+  const siteB = dual
+    ? buildSitePanel({
+        label: 'Site B — Replica',
+        result,
+        summary,
+        assetBase,
+        showClients: false,
+        showRhaf: false,
+        omitMirrorMaker: false,
+        replica: true,
+      })
+    : '';
+
+  const meta = `Ingress ${result.ingressMBps} MB/s · binding ${result.bindingConstraint} · subscription ${result.subscriptionCoresReported} cores (${result.subscriptionPolicy})`;
+
+  return `<div class="streams-arch" data-layout="${esc(summary.layout)}">
+  <header class="streams-arch__header">
+    ${
+      rh
+        ? `<img class="streams-arch__logo streams-arch__logo--mast" src="${esc(rh)}" alt="Red Hat" loading="lazy" />`
+        : ''
+    }
+    <div class="streams-arch__header-text">
+      <div class="streams-arch__title">${esc(title)}</div>
+      <div class="streams-arch__subtitle">OpenShift · Streams for Apache Kafka${dual ? ' · MirrorMaker 2' : ''}${summary.includeRhaf ? ' · RHAF' : ''}</div>
+    </div>
+  </header>
+  <div class="streams-arch__canvas${dual ? ' streams-arch__canvas--dual' : ''}">
+    ${siteA}
+    ${bridge}
+    ${siteB}
+  </div>
+  <footer class="streams-arch__footer">${esc(meta)}</footer>
+</div>`;
 }
