@@ -1,6 +1,6 @@
 {
   "id": "fixture-peak-500-to-3k-tps",
-  "description": "Full aggregate planning package: peak 500 msg/s @ 8KB growing to ~3K msg/s in 24 months; retention 72h; RF=3; Site A↔B fiber with MirrorMaker 2. Four production clusters = 2 replicated pairs. Import uses top-level input (aggregate). Domain splits under domains[] are 50/50 placeholders until real TPS split is known. LDAP/Ranger/Kerberos and costs out of sizing scope.",
+  "description": "Full aggregate planning package: peak 500 msg/s @ 8KB growing to ~3K msg/s in 24 months; retention 72h; RF=3; Site A↔B fiber with MirrorMaker 2. Four production clusters = 2 replicated pairs. Import uses top-level input (aggregate). Domain splits under domains[] are 50/50 placeholders until real TPS split is known. ",
   "input": {
     "platform": "openshift",
     "messageSizeBytes": 8000,
@@ -59,8 +59,7 @@
     "network": "10 Gbps full duplex, low RTT fiber between sites",
     "trafficSplit": "500 TPS treated as aggregate across both domains until clarified; domain inputs use 50/50 placeholder",
     "clientAccess": "In-cluster consumers plus legacy/external clients (camelAndExternal)",
-    "includeDr": "Sizes MirrorMaker 2 workers only; each replicated pair still implies two Kafka clusters (active + replica)",
-    "outOfScope": "LDAP/AD/Kerberos/Ranger ACL design; commercial cost/price lists"
+    "includeDr": "Sizes MirrorMaker 2 workers only; each replicated pair still implies two Kafka clusters (active + replica)"
   },
   "topology": {
     "scope": "full-aggregate",

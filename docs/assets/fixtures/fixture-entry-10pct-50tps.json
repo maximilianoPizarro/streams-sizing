@@ -1,6 +1,6 @@
 {
   "id": "fixture-entry-10pct-50tps",
-  "description": "Entry-level planning package: 10% of aggregate peak volume (50 of 500 TPS) @ 8KB, retention 72h, RF=3. Models one replicated pair (2 clusters, Site A↔B via MirrorMaker 2) for comparison against full footprint. Auth LDAP/Ranger/Kerberos migration and commercial costs are out of sizing scope.",
+  "description": "Entry-level planning package: 10% of aggregate peak volume (50 of 500 TPS) @ 8KB, retention 72h, RF=3. Models one replicated pair (2 clusters, Site A↔B via MirrorMaker 2) for comparison against full footprint.",
   "input": {
     "platform": "openshift",
     "messageSizeBytes": 8000,
@@ -59,8 +59,7 @@
     "growth": "Same relative curve as full: 50 TPS → ~300 TPS in ~24 months (annualGrowthRatePercent 145 × projectionYears 2)",
     "network": "10 Gbps full duplex, low RTT fiber between sites",
     "clientAccess": "In-cluster consumers plus legacy/external clients (camelAndExternal)",
-    "includeDr": "MirrorMaker 2 workers sized; pair implies active + replica Kafka clusters",
-    "outOfScope": "LDAP/AD/Kerberos/Ranger ACL design; commercial cost/price lists"
+    "includeDr": "MirrorMaker 2 workers sized; pair implies active + replica Kafka clusters"
   },
   "topology": {
     "scope": "entry-level",
